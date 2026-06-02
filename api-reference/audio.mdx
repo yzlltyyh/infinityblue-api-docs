@@ -1,0 +1,69 @@
+---
+title: "Audio"
+description: "Speech-to-text and text-to-speech"
+---
+
+# Audio
+
+The audio API covers both directions of the speech pipeline. Use speech-to-text to transcribe uploaded audio and text-to-speech to synthesize natural-sounding voice output. The interactive reference below is generated from `openapi/openapi.yaml`.
+
+## Endpoints
+
+<CardGroup cols={2}>
+  <Card title="POST /v1/audio/transcriptions" icon="microphone" href="/api-reference/audio/transcription">
+    Convert an audio file to text. Supports multilingual detection, speaker diarization, and timestamped segments.
+  </Card>
+  <Card title="POST /v1/audio/translations" icon="language" href="/api-reference/audio/translation">
+    Transcribe audio in any supported language and translate it to English in a single call.
+  </Card>
+  <Card title="POST /v1/audio/speech" icon="waveform-lines" href="/api-reference/audio/speech">
+    Synthesize speech from text. Pick a voice, a model, and an output format. Returns a binary audio stream.
+  </Card>
+  <Card title="GET /v1/audio/voices" icon="list" href="/api-reference/audio/voices">
+    List the available voices for the speech endpoint, including language and style metadata.
+  </Card>
+</CardGroup>
+
+## Speech-to-text
+
+Use transcriptions to power meeting notes, call analytics, podcast search, and voice input for chat agents. The endpoint accepts `multipart/form-data` with a `file` field plus optional metadata.
+
+```bash
+curl https://api.infinityblue.com/v1/audio/transcriptions \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -F file=@recording.mp3 \
+  -F model="whisper-1" \
+  -F response_format="verbose_json" \
+  -F language="en"
+```
+
+`verbose_json` returns the full transcript, segment-level timestamps, and detected language. `json` returns just the text. `srt` and `vtt` return ready-to-render subtitle files.
+
+## Text-to-speech
+
+Use speech to add voice output to assistants, narrate long-form content, or build accessibility features. The endpoint returns binary audio — pipe the response into a file rather than parsing it as JSON.
+
+```bash
+curl https://api.infinityblue.com/v1/audio/speech \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "tts-1",
+    "voice": "alloy",
+    "input": "Welcome to InfinityBlue. How can I help you today?",
+    "response_format": "mp3"
+  }' \
+  --output welcome.mp3
+```
+
+<Tip>
+  The `hd` model variant produces noticeably better quality at higher latency. Use the standard model for interactive UIs and the HD model for pre-rendered content.
+</Tip>
+
+## Choosing a voice
+
+Each voice has a distinct tone, accent, and pacing. The `GET /v1/audio/voices` endpoint returns the current catalog, including sample clips you can audition in the dashboard. Mix and match voices per language or per feature to make your product feel less robotic.
+
+## Limits
+
+Audio files must be smaller than the per-model limit (commonly 25 MB). For longer files, chunk the input or use the streaming variant. See [Error Handling](/quickstart/errors) for the `413` payload-too-large response.

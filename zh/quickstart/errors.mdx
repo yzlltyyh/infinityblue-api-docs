@@ -1,0 +1,88 @@
+---
+title: "错误处理"
+description: "理解 API 错误响应"
+---
+
+# 错误处理
+
+InfinityBlue API 的所有错误响应都遵循统一、与 OpenAI 兼容的结构。掌握这个结构与最常见的 HTTP 状态码，可以把"请求失败"变成 5 分钟内能解决的小问题。
+
+## 错误响应格式
+
+```json
+{
+  "error": {
+    "message": "Incorrect API key provided: sk-xxx***. You can find your API key at https://infinityblue.com/dashboard.",
+    "type": "invalid_request_error",
+    "code": "invalid_api_key",
+    "param": null
+  }
+}
+```
+
+<CardGroup cols={2}>
+  <Card title="message" icon="comment">
+    人类可读的错误描述。可以安全地写入日志，大多数情况下也可以直接展示给用户。
+  </Card>
+  <Card title="type" icon="tag">
+    粗粒度分类，例如 `invalid_request_error`、`authentication_error`、`rate_limit_error`、`server_error`。可用于驱动重试逻辑。
+  </Card>
+  <Card title="code" icon="barcode">
+    稳定的机器可读标识符。code 一旦发布就不会变更，可以在代码里放心地 switch。
+  </Card>
+  <Card title="param" icon="arrow-pointer">
+    当错误与特定字段相关时，这里返回该字段的 JSON 路径。`null` 表示错误与具体字段无关。
+  </Card>
+</CardGroup>
+
+## 常见状态码
+
+| 状态码 | type | 含义 | 推荐处理 |
+| --- | --- | --- | --- |
+| 400 | `invalid_request_error` | 请求体格式错误、缺少字段或值超出范围。 | 修正请求后重试，不要盲目重试。 |
+| 401 | `authentication_error` | API Key 缺失、格式错误或被撤销。 | 重新检查 Key，参考 [鉴权](/zh/quickstart/auth)。 |
+| 403 | `permission_error` | 当前 Key 没有访问该模型或功能的权限。 | 升级套餐或改用其他模型。 |
+| 404 | `not_found_error` | 端点或模型不存在。 | 检查路径和 `model` 参数。 |
+| 413 | `invalid_request_error` | 请求体超过模型上限。 | 减小输入或对内容分片。 |
+| 429 | `rate_limit_error` | 超过每分钟请求数或 token 数预算。 | 退避后重试，遵循 `Retry-After` 头。 |
+| 500 | `server_error` | 上游服务商失败。 | 指数退避后重试。 |
+| 502 / 503 | `server_error` | 网关或上游暂时不可用。 | 退避后重试，这是我们这边的问题。 |
+| 504 | `server_error` | 上游响应超时。 | 退避重试一两次后向用户提示。 |
+
+<Tip>
+  `Retry-After` 响应头（单位：秒）是 `429` 响应最可靠的信号。永远先尊重它，再回退到你自己的退避策略。
+</Tip>
+
+## 排查清单
+
+<Steps>
+  <Step title="记录完整响应">
+    记录 HTTP 状态码、JSON 响应体以及响应头中的 `x-request-id`。凭 request ID，客服可以在几分钟内关联到内部 trace。
+  </Step>
+  <Step title="用 curl 复现">
+    用一个最小的 `curl` 命令复现失败。SDK 增加了重试、代理和中间件，会掩盖真实错误。
+  </Step>
+  <Step title="检查 `param` 和 `code`">
+    如果错误指向某个参数，跳到 payload 中对应字段。如果错误给出 code，搜索文档中对应的修复方案。
+  </Step>
+  <Step title="检查限流">
+    查看 `x-ratelimit-remaining-*` 和 `x-ratelimit-reset-*` 响应头。即便请求体看起来正确，也可能因为 `429` 失败。
+  </Step>
+  <Step title="提交工单">
+    如果问题持续，附带 request ID、时间戳和脱敏后的 payload 提交工单。永远不要分享 API Key。
+  </Step>
+</Steps>
+
+## 写一个健壮的客户端
+
+生产级客户端应当做到：
+
+- 把 `2xx` 视为成功。
+- 对 `429` 和 `5xx` 使用指数退避 + 完全抖动重试，限制最大尝试次数。
+- 不要重试 `400`、`401`、`403`、`404`——这些失败不会自己恢复。
+- 重试耗尽后向用户展示清晰的错误信息，优先使用网关返回的 `message`。
+- 通过成功响应的 `usage` 字段维护自己的成本统计。
+
+<Note>
+  各端点发布的完整错误码见 [API 参考](/api-reference/chat)。上面这张表是快速排查的速查表，不是完整规范。
+</Note>

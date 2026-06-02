@@ -1,0 +1,87 @@
+---
+title: "Embeddings"
+description: "Text embeddings for semantic search and RAG"
+---
+
+# Embeddings
+
+Embeddings turn text into dense vectors that capture semantic meaning. They power similarity search, recommendation systems, retrieval-augmented generation (RAG), clustering, and classification. The interactive reference below is generated from `openapi/openapi.yaml`.
+
+## Endpoint
+
+<Card title="POST /v1/embeddings" icon="vector-square" href="/api-reference/embeddings/create">
+    Generate one embedding per input string. Returns a vector of floats for each input plus a `usage` block.
+</Card>
+
+## When to use embeddings
+
+- **Semantic search** — find documents that match a query by meaning rather than keywords.
+- **RAG** — retrieve the most relevant chunks for a question before passing them to a chat model.
+- **Clustering** — group similar tickets, support emails, or user feedback.
+- **Classification** — train a lightweight classifier on top of frozen embeddings.
+- **Recommendations** — surface related products, articles, or users.
+
+## Minimal example
+
+```bash
+curl https://api.infinityblue.com/v1/embeddings \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "text-embedding-3-large",
+    "input": ["How do I reset my password?", "I forgot my login credentials"]
+  }'
+```
+
+The response:
+
+```json
+{
+  "object": "list",
+  "data": [
+    {"object": "embedding", "index": 0, "embedding": [0.012, -0.034, 0.087, "..."]},
+    {"object": "embedding", "index": 1, "embedding": [0.011, -0.029, 0.091, "..."]}
+  ],
+  "model": "text-embedding-3-large",
+  "usage": {"prompt_tokens": 12, "total_tokens": 12}
+}
+```
+
+## Choosing an embedding model
+
+| Model | Dimensions | Best for |
+| --- | --- | --- |
+| `text-embedding-3-small` | 1536 | High-throughput retrieval, clustering, classification. |
+| `text-embedding-3-large` | 3072 | Highest-quality semantic search and RAG. |
+| `text-embedding-ada-002` | 1536 | Legacy compatibility with older pipelines. |
+
+<Info>
+  Vectors returned by different embedding models are not directly comparable. If you change models, re-embed your corpus before re-indexing.
+</Info>
+
+## Storing and querying vectors
+
+The gateway does not store embeddings. Pair this endpoint with a vector database such as pgvector, Pinecone, Weaviate, or Qdrant. Index the vectors, attach the original text as metadata, and query with cosine similarity (the default for OpenAI-family embeddings).
+
+A typical pipeline:
+
+<Steps>
+  <Step title="Chunk">
+    Split long documents into 200-500 token chunks. Embed each chunk independently.
+  </Step>
+  <Step title="Embed">
+    Send chunks in batches of up to 2048 inputs per request to amortize network overhead.
+  </Step>
+  <Step title="Index">
+    Upsert the vectors into your store along with the source document ID and chunk text.
+  </Step>
+  <Step title="Query">
+    At query time, embed the user question, run a top-k nearest neighbor search, and pass the matches to a chat model for answer generation.
+  </Step>
+</Steps>
+
+## Improving retrieval quality
+
+- Use the [Rerank](/api-reference/rerank) endpoint as a second pass over the top candidates for a measurable boost in precision.
+- Normalize the input by lowercasing and stripping whitespace before embedding.
+- Re-embed periodically when you change models or when upstream dimensions change.

@@ -1,0 +1,61 @@
+---
+title: "多模态输入"
+description: "在对话中发送图片、音频、PDF"
+---
+
+# 多模态输入
+
+现代 chat 模型支持图片、音频、PDF 输入（不仅是文本）。
+
+<Note>
+  完整指南（含 base64 编码、detail 参数、PDF 处理）请参考
+  [English version](/guides/multimodal-input)。
+</Note>
+
+## 发送图片（URL）
+
+```json
+{
+  "model": "gpt-4o",
+  "messages": [
+    {
+      "role": "user",
+      "content": [
+        {"type": "text", "text": "图片里有什么？"},
+        {"type": "image_url", "image_url": {"url": "https://example.com/cat.jpg"}}
+      ]
+    }
+  ]
+}
+```
+
+## 发送图片（本地 base64）
+
+```python
+import base64
+from openai import OpenAI
+
+client = OpenAI(api_key="YOUR_API_KEY", base_url="https://api.infinityblue.com/v1")
+
+with open("cat.jpg", "rb") as f:
+    image_data = base64.b64encode(f.read()).decode("utf-8")
+
+response = client.chat.completions.create(
+    model="gpt-4o",
+    messages=[{
+        "role": "user",
+        "content": [
+            {"type": "text", "text": "图片里有什么？"},
+            {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_data}"}}
+        ]
+    }]
+)
+```
+
+## 支持的能力
+
+| 模型 | 图片 | 音频 | PDF |
+|---|---|---|---|
+| `gpt-4o` / `gpt-5` | ✅ | ❌ | ✅ |
+| `claude-3.5+` | ✅ | ❌ | ✅ |
+| `gemini-2.0+` | ✅ | ✅ | ✅ |

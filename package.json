@@ -1,0 +1,16 @@
+{
+  "name": "infinityblue-api-docs",
+  "version": "0.1.0",
+  "description": "InfinityBlue API documentation — OpenAPI spec + Mintlify site",
+  "private": true,
+  "scripts": {
+    "lint": "redocly lint openapi/openapi.yaml",
+    "bundle": "redocly bundle openapi/openapi.yaml --output openapi/openapi.bundled.yaml",
+    "validate": "mint validate openapi/openapi.yaml",
+    "dev": "mint dev"
+  },
+  "devDependencies": {
+    "@redocly/cli": "^1.25.0",
+    "mint": "^4.0.0"
+  }
+}

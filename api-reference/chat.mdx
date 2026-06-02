@@ -1,0 +1,94 @@
+---
+title: "Chat"
+description: "Text, vision, and tool-use chat completions"
+---
+
+# Chat
+
+The chat API is the workhorse of InfinityBlue. It serves text-only conversations, vision inputs, structured tool calls, streaming responses, and reasoning traces through a single OpenAI-compatible endpoint. The interactive reference below is generated from `openapi/openapi.yaml` and reflects the exact request and response schema.
+
+## Endpoint
+
+<Card title="POST /v1/chat/completions" icon="terminal" href="/api-reference/chat/create">
+  Generate a model response from a list of messages. The body accepts the full OpenAI schema, including `temperature`, `top_p`, `tools`, `response_format`, `stream`, and `reasoning_effort`.
+</Card>
+
+## Capabilities
+
+<CardGroup cols={2}>
+  <Card title="Text" icon="font">
+    Standard conversational text. Supports system, user, and assistant messages, with a configurable context window per model.
+  </Card>
+  <Card title="Vision" icon="image">
+    Pass images inside the user message as either a public URL or a base64 data URI. See [Multimodal Input](/guides/multimodal-input) for details.
+  </Card>
+  <Card title="Tool use" icon="wrench">
+    Define a `tools` array of JSON Schema functions. The model returns structured `tool_calls` that your application executes and feeds back in a follow-up request.
+  </Card>
+  <Card title="Streaming" icon="water">
+    Set `"stream": true` to receive server-sent events. Tokens arrive one chunk at a time so your UI can render progressively. See [Streaming](/guides/streaming).
+  </Card>
+  <Card title="Reasoning" icon="brain">
+    Reasoning-capable models return a `reasoning` field on each message. Set `reasoning_effort` to `low`, `medium`, or `high` to trade off latency and quality.
+  </Card>
+  <Card title="Structured output" icon="brackets-curly">
+    Constrain the model to a JSON Schema with `response_format: { type: "json_schema", ... }`. Useful for parsing, agents, and typed pipelines.
+  </Card>
+</CardGroup>
+
+## Minimal example
+
+```bash
+curl https://api.infinityblue.com/v1/chat/completions \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "gpt-4o",
+    "messages": [{"role": "user", "content": "Summarize the plot of Hamlet in one sentence."}]
+  }'
+```
+
+A full payload that exercises vision, tools, and structured output looks like this:
+
+```json
+{
+  "model": "gpt-4o",
+  "messages": [
+    {
+      "role": "user",
+      "content": [
+        {"type": "text", "text": "What is in this image?"},
+        {"type": "image_url", "image_url": {"url": "https://example.com/cat.jpg"}}
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "type": "function",
+      "function": {
+        "name": "get_weather",
+        "description": "Get current weather for a city",
+        "parameters": {
+          "type": "object",
+          "properties": {"city": {"type": "string"}},
+          "required": ["city"]
+        }
+      }
+    }
+  ],
+  "response_format": {"type": "json_object"},
+  "temperature": 0.2
+}
+```
+
+<Info>
+  The Mintlify reference page auto-renders the full request and response schema, every supported parameter, and an interactive playground that lets you try the endpoint from the browser.
+</Info>
+
+## Choosing a model
+
+Different chat models balance latency, cost, and capability differently. Start with `gpt-4o` for general purpose work; switch to a smaller model such as `gpt-4o-mini` for high-throughput classification; switch to a reasoning model for multi-step planning. See [Model Selection](/guides/model-selection) for a side-by-side comparison.
+
+## Error handling
+
+Chat requests fail with the same envelope described in [Error Handling](/quickstart/errors). The most common failures are `401` (bad key), `429` (rate limit), and `400 invalid_request_error` (schema mismatch, often a malformed tool definition).

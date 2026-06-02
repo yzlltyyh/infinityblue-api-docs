@@ -1,0 +1,17 @@
+apis:
+  api@v1:
+    root: openapi/openapi.yaml
+
+extends:
+  - recommended
+
+rules:
+  operation-operationId: error
+  operation-description: warn
+  operation-summary: error
+  no-unused-components: warn
+  no-server-example.com: error
+  no-path-trailing-slash: error
+  info-license: off
+  info-contact: off
+  spec-components-invalid-map-name: off

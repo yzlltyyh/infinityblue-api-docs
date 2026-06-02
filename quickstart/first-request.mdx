@@ -1,0 +1,96 @@
+---
+title: "Your First Request"
+description: "Make your first API call in under 5 minutes"
+---
+
+# Your First Request
+
+This walkthrough sends a single chat completion, inspects the response, and points you at the most useful next steps. It assumes you already have an API key — if not, follow [Authentication](/quickstart/auth) first.
+
+## Send a request
+
+The endpoint is `POST /v1/chat/completions`. The body is JSON, the auth header is required, and the request is OpenAI-compatible, so any SDK or tutorial that works against `api.openai.com` works here too.
+
+```bash
+curl https://api.infinityblue.com/v1/chat/completions \
+  -H "Authorization: Bearer YOUR_API_KEY" -H "Content-Type: application/json" \
+  -d '{"model":"gpt-4o","messages":[{"role":"system","content":"You are a concise assistant."},{"role":"user","content":"Say hello in one short sentence."}]}'
+```
+
+A successful response looks like this:
+
+```json
+{
+  "id": "chatcmpl-9f3a8b2e1c0d",
+  "object": "chat.completion",
+  "created": 1717430000,
+  "model": "gpt-4o-2024-08-06",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "Hello! How can I help you today?"
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 24,
+    "completion_tokens": 9,
+    "total_tokens": 33
+  }
+}
+```
+
+## Anatomy of the response
+
+<CardGroup cols={2}>
+  <Card title="id" icon="fingerprint">
+    A unique identifier for this completion. Useful for log correlation, support tickets, and idempotency tracking.
+  </Card>
+  <Card title="model" icon="microchip">
+    The exact upstream model that handled the request. May differ from the alias you sent if the gateway routes to a newer revision.
+  </Card>
+  <Card title="choices" icon="list">
+    An array of one or more completions. The default `n=1` returns a single element. Each entry has a `message` and a `finish_reason` such as `stop`, `length`, or `tool_calls`.
+  </Card>
+  <Card title="usage" icon="chart-line">
+    Token counts for prompt and completion. Use these numbers to estimate cost and to enforce per-request budgets in your application.
+  </Card>
+</CardGroup>
+
+## Make it interactive
+
+The same request is straightforward from Python or JavaScript:
+
+```python
+from openai import OpenAI
+
+client = OpenAI(api_key="YOUR_API_KEY", base_url="https://api.infinityblue.com/v1")
+reply = client.chat.completions.create(
+    model="gpt-4o",
+    messages=[{"role": "user", "content": "Say hello in one short sentence."}],
+)
+print(reply.choices[0].message.content)
+```
+
+```javascript
+import OpenAI from "openai";
+const client = new OpenAI({ apiKey: "YOUR_API_KEY", baseURL: "https://api.infinityblue.com/v1" });
+const reply = await client.chat.completions.create({
+  model: "gpt-4o", messages: [{ role: "user", content: "Say hello in one short sentence." }],
+});
+console.log(reply.choices[0].message.content);
+```
+
+<Info>
+  You can keep using the OpenAI SDK, LangChain, LlamaIndex, or any other library that targets the OpenAI HTTP API. Just point the base URL at `https://api.infinityblue.com/v1`.
+</Info>
+
+## Recommended next steps
+
+- Read [Error Handling](/quickstart/errors) to learn how the gateway reports failures and how to retry safely.
+- Browse the [Chat API reference](/api-reference/chat) for the full set of supported parameters, including tool use and vision.
+- Try [Streaming](/guides/streaming) to start returning tokens to your UI as soon as they are produced.
+- Use [Model Selection](/guides/model-selection) to pick the right model for your latency, cost, and capability constraints.

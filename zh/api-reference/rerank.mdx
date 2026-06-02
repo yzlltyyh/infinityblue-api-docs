@@ -1,0 +1,32 @@
+---
+title: "Rerank 重排"
+description: "文档重排接口，提升搜索相关性"
+---
+
+# Rerank 重排
+
+文档重排接口。在初次检索（如 BM25、向量搜索）后，用更强的模型对结果重新排序，提升相关性。
+
+<Card title="Endpoints" icon="code">
+  - [POST /v1/rerank](/api-reference/rerank/create-rerank) — 重排文档
+</Card>
+
+<Note>
+  详细 Schema 请参考 [English API Reference](/api-reference/rerank)。
+</Note>
+
+## 典型 RAG 流程
+
+```
+用户查询
+  ↓ 向量搜索
+Top-50 候选
+  ↓ Rerank
+Top-5 高相关
+  ↓ LLM 生成
+最终答案
+```
+
+## 支持的模型
+
+`rerank-3.5`、`cohere-rerank-v3`、`jina-rerank-v2`

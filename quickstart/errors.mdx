@@ -1,0 +1,88 @@
+---
+title: "Error Handling"
+description: "Understanding API error responses"
+---
+
+# Error Handling
+
+Every error response from the InfinityBlue API follows a single, OpenAI-compatible shape. Knowing the structure — and the meaning of the most common status codes — turns a broken request into a five-minute fix.
+
+## Error response shape
+
+```json
+{
+  "error": {
+    "message": "Incorrect API key provided: sk-xxx***. You can find your API key at https://infinityblue.com/dashboard.",
+    "type": "invalid_request_error",
+    "code": "invalid_api_key",
+    "param": null
+  }
+}
+```
+
+<CardGroup cols={2}>
+  <Card title="message" icon="comment">
+    A human-readable description of what went wrong. Safe to surface in logs and, in most cases, in user-facing error messages.
+  </Card>
+  <Card title="type" icon="tag">
+    A coarse category such as `invalid_request_error`, `authentication_error`, `rate_limit_error`, or `server_error`. Use it to drive retry logic.
+  </Card>
+  <Card title="code" icon="barcode">
+    A stable machine-readable identifier. Codes do not change once published, so you can safely switch on them.
+  </Card>
+  <Card title="param" icon="arrow-pointer">
+    When the error is tied to a specific field, its JSON path is returned here. `null` means the error is not field-specific.
+  </Card>
+</CardGroup>
+
+## Common status codes
+
+| Status | Type | Meaning | Recommended action |
+| --- | --- | --- | --- |
+| 400 | `invalid_request_error` | Malformed body, missing field, or value outside the allowed range. | Fix the request and retry. Do not retry blindly. |
+| 401 | `authentication_error` | Missing, malformed, or revoked API key. | Re-check the key. See [Authentication](/quickstart/auth). |
+| 403 | `permission_error` | The key does not have access to the requested model or feature. | Upgrade the plan or pick a different model. |
+| 404 | `not_found_error` | The endpoint or model does not exist. | Verify the path and the `model` parameter. |
+| 413 | `invalid_request_error` | Payload is too large for the model. | Reduce the input size, or chunk the content. |
+| 429 | `rate_limit_error` | You exceeded the requests-per-minute or tokens-per-minute budget. | Back off and retry with jitter. Honor the `Retry-After` header. |
+| 500 | `server_error` | An upstream provider failed. | Retry with exponential backoff. |
+| 502 / 503 | `server_error` | Gateway or upstream is temporarily unavailable. | Retry with backoff; the issue is on our side. |
+| 504 | `server_error` | The upstream did not respond in time. | Retry once or twice with backoff, then surface a friendly error. |
+
+<Tip>
+  The `Retry-After` header (in seconds) is the most reliable signal for `429` responses. Always honor it before falling back to your own backoff schedule.
+</Tip>
+
+## Debugging checklist
+
+<Steps>
+  <Step title="Capture the full response">
+    Log the status code, the JSON body, and the request ID returned in the `x-request-id` response header. Support can correlate the request ID with internal traces within minutes.
+  </Step>
+  <Step title="Reproduce with curl">
+    Reproduce the failure with a minimal `curl` command. SDKs add retries, proxies, and middleware that obscure the real error.
+  </Step>
+  <Step title="Check `param` and `code`">
+    If the error names a parameter, jump to that field in your payload. If it names a code, search the docs for the code string to find a known fix.
+  </Step>
+  <Step title="Check rate limits">
+    Inspect the `x-ratelimit-remaining-*` and `x-ratelimit-reset-*` headers. A request can fail with `429` even when the body looks correct.
+  </Step>
+  <Step title="Open a support ticket">
+    If the issue persists, include the request ID, the timestamp, and a redacted version of the payload. Never share the API key.
+  </Step>
+</Steps>
+
+## Building a robust client
+
+A production client should:
+
+- Treat any `2xx` as success.
+- Retry `429` and `5xx` with exponential backoff and full jitter, capped at a small number of attempts.
+- Never retry `400`, `401`, `403`, or `404` — these failures will not resolve on their own.
+- Surface a clear, user-friendly error when retries are exhausted, ideally using the gateway's `message`.
+- Track the `usage` field of successful responses to keep your own cost telemetry accurate.
+
+<Note>
+  See the [API Reference](/api-reference/chat) for the full set of error codes published by each endpoint. The list above is a quick triage cheat sheet, not a complete specification.
+</Note>

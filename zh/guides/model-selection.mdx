@@ -1,0 +1,36 @@
+---
+title: "如何选择模型"
+description: "根据任务选对模型"
+---
+
+# 如何选择模型
+
+InfinityBlue 聚合 100+ 模型。选择模型时考虑三个问题：
+1. **需要什么能力？**（文本、视觉、图片生成、视频、音频、向量化、重排）
+2. **质量要求？**（顶级 or 1/10 价格的"够用"？）
+3. **延迟要求？**（实时对话 or 批处理？）
+
+<Note>
+  完整推荐表格请参考 [English version](/guides/model-selection)。
+  本页只给中文摘要。
+</Note>
+
+## 快速选择表
+
+| 任务 | 推荐模型 | 备选 |
+|---|---|---|
+| 复杂推理、代码 | `gpt-5`、`claude-opus-4-7` | `gemini-2.5-pro` |
+| 通用对话 | `gpt-4o`、`claude-sonnet-4-6` | `gemini-2.0-flash` |
+| 高量低成本 | `gpt-4o-mini`、`claude-haiku-4-5` | `gemini-2.0-flash` |
+| 长文档分析（>100K tokens） | `gemini-2.5-pro`（1M 上下文） | `claude-opus-4-7`（200K） |
+| 视觉理解 | `gpt-4o`、`claude-opus-4-7` | `gemini-2.5-pro` |
+| 中文文字渲染（图片） | `qwen-image` | `gpt-image-1` |
+| 顶级视频 | `sora-1.0-turbo` | `veo-2` |
+| 性价比视频 | `kling-1.6-pro` | - |
+
+## 成本优化
+
+1. 用最小满足质量的模型（`gpt-4o-mini` 比 `gpt-4o` 便宜 30 倍）
+2. 启用 prompt caching（Claude / GPT-4o 支持，重复 system prompt 享 90% 折扣）
+3. 设置 `max_tokens` 防止意外生成
+4. 用 Batch API 享 50% 折扣（24h SLA）

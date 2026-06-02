@@ -1,0 +1,98 @@
+---
+title: "鉴权"
+description: "如何使用 API Key 鉴权"
+---
+
+# 鉴权
+
+所有对 InfinityBlue API 的请求都必须在 `Authorization` 请求头中携带一个 Bearer Token。这个 Token 与你的账号绑定，用于计费、限流与权限控制。
+
+## 获取 API Key
+
+<Steps>
+  <Step title="登录">
+    打开 [InfinityBlue 控制台](https://infinityblue.com) 并登录。
+  </Step>
+  <Step title="进入 API Key 页面">
+    导航到 **设置 → API Key**。页面会列出工作区下所有 Key 及其创建时间、最近使用时间。
+  </Step>
+  <Step title="创建新 Key">
+    点击 **创建 Key**，给它起一个有意义的名字（例如 `prod-backend`、`local-dev`），复制显示的值。Key 仅显示一次。
+  </Step>
+</Steps>
+
+<Warning>
+  请立即保存 Key。出于安全考虑，控制台不会再次展示完整 Key。如果丢失，必须轮换（rotate）该 Key。
+</Warning>
+
+## 在请求中传递 Key
+
+Key 通过 Bearer 方案放在 `Authorization` 请求头中：
+
+```bash
+curl https://api.infinityblue.com/v1/chat/completions \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"model": "gpt-4o", "messages": [{"role": "user", "content": "你好"}]}'
+```
+
+使用官方 OpenAI SDK 时，把 base URL 指向 InfinityBlue 即可，Key 通过环境变量传入：
+
+```python
+import os
+from openai import OpenAI
+
+client = OpenAI(
+    api_key=os.environ["INFINITYBLUE_API_KEY"],
+    base_url="https://api.infinityblue.com/v1",
+)
+
+response = client.chat.completions.create(
+    model="gpt-4o",
+    messages=[{"role": "user", "content": "你好"}],
+)
+```
+
+```javascript
+import OpenAI from "openai";
+
+const client = new OpenAI({
+  apiKey: process.env.INFINITYBLUE_API_KEY,
+  baseURL: "https://api.infinityblue.com/v1",
+});
+
+const response = await client.chat.completions.create({
+  model: "gpt-4o",
+  messages: [{ role: "user", content: "你好" }],
+});
+```
+
+## Key 安全最佳实践
+
+<Tip>
+  把 API Key 当成密码对待。任何拿到 Key 的人都可以消费你的额度并查看账号元信息。
+</Tip>
+
+- 从环境变量或密钥管理服务加载 Key。永远不要提交到 git，也不要硬编码到源码。
+- 每个环境（开发、预发、生产）使用独立的 Key，这样撤销一个不会影响其他环境。
+- 定期轮换 Key；怀疑泄露时立即轮换。
+- 在控制台支持的情况下，开启 IP 白名单或来源限制。
+- 在共享 Notebook 中使用时，记得在 Cell 输出中脱敏，结束会话时清理内核中的 Key。
+
+## 常见问题排查
+
+如果收到 `401 Unauthorized`，按以下顺序检查：
+
+<Steps>
+  <Step title="确认请求头存在">
+    请求必须携带 `Authorization: Bearer YOUR_API_KEY`（注意 `Bearer` 与 Key 之间有空格）。没有 scheme 前缀时，服务器会判为请求头格式错误。
+  </Step>
+  <Step title="确认 Key 处于激活状态">
+    已撤销或已删除的 Key 也会返回 `401`。回到控制台确认 Key 状态。
+  </Step>
+  <Step title="确认 Base URL">
+    确保请求发到 `https://api.infinityblue.com/v1` 而非其他域名。不同环境使用不同 Key 命名空间。
+  </Step>
+</Steps>
+
+更多错误码和恢复建议见 [错误处理](/zh/quickstart/errors)。

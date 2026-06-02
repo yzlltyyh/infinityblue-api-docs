@@ -1,0 +1,32 @@
+---
+title: "流式响应"
+description: "用 Server-Sent Events 实时接收模型输出"
+---
+
+# 流式响应
+
+设置 `stream: true` 即可逐 token 接收模型输出，适合聊天 UI 实时显示。
+
+<Note>
+  完整指南（含代码示例、浏览器实现、reasoning 模型流式）请参考
+  [English version](/guides/streaming)。
+</Note>
+
+## 快速示例
+
+```bash
+curl https://api.infinityblue.com/v1/chat/completions \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "gpt-4o",
+    "stream": true,
+    "messages": [{"role": "user", "content": "数到 10"}]
+  }'
+```
+
+返回 Server-Sent Events，每行 `data: {json}`，流以 `data: [DONE]` 结束。
+
+## 浏览器
+
+`EventSource` 不支持自定义 header，需用 `fetch` + `ReadableStream`（详见英文版）。

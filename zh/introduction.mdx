@@ -1,0 +1,61 @@
+---
+title: "介绍"
+description: "InfinityBlue API 文档"
+---
+
+# InfinityBlue API
+
+一个兼容 OpenAI 协议的统一网关，覆盖聊天、图像、视频、音频、向量化与重排序模型。中文用户可从这里开始；右侧语言切换可在中英文档之间随时切换。
+
+## 你能获得什么
+
+<CardGroup cols={2}>
+  <Card title="快速开始" icon="rocket" href="/zh/quickstart/auth">
+    5 分钟跑通第一个 API 请求
+  </Card>
+  <Card title="API 参考" icon="code" href="/api-reference/chat">
+    浏览全部端点，带可交互 Playground
+  </Card>
+  <Card title="指南" icon="book" href="/guides/model-selection">
+    学习如何选模型与使用进阶能力
+  </Card>
+  <Card title="GitHub 仓库" icon="github" href="https://github.com/yzlltyyh/infinityblue-api-docs">
+    本文档的源代码
+  </Card>
+</CardGroup>
+
+## 鉴权方式
+
+所有请求都需要在 `Authorization` 头中携带 Bearer Token：
+
+```bash
+curl https://api.infinityblue.com/v1/chat/completions \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "gpt-4o",
+    "messages": [{"role": "user", "content": "你好!"}]
+  }'
+```
+
+<Note>
+  本文档由 `openapi/openapi.yaml` 自动生成（仓库地址见上方 GitHub 卡片）。
+  如果发现错误或需要补充的内容，欢迎提 Issue 或 PR。中文用户提问时使用中文即可。
+</Note>
+
+## 推荐阅读路径
+
+<Steps>
+  <Step title="拿到 API Key">
+    前往 [鉴权](/zh/quickstart/auth) 完成账号注册与 Key 申请。
+  </Step>
+  <Step title="跑通第一个请求">
+    阅读 [第一个请求](/zh/quickstart/first-request)，跟着示例复制粘贴即可。
+  </Step>
+  <Step title="了解错误码">
+    遇到报错时，参考 [错误处理](/zh/quickstart/errors) 排查问题。
+  </Step>
+  <Step title="按需深入">
+    在 [API 参考](/api-reference/chat) 中查看具体端点参数，或阅读 [模型选择](/guides/model-selection) 等进阶指南。
+  </Step>
+</Steps>

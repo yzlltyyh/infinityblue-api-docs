@@ -1,0 +1,61 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "theme": "mint",
+  "name": "InfinityBlue API",
+  "colors": {
+    "primary": "#0D9373",
+    "light": "#07C983",
+    "dark": "#0D9373"
+  },
+  "favicon": "/favicon.svg",
+  "navigation": {
+    "languages": [
+      { "language": "en", "default": true },
+      { "language": "zh" }
+    ],
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "quickstart/auth",
+              "quickstart/first-request",
+              "quickstart/errors"
+            ]
+          },
+          {
+            "group": "API Reference",
+            "pages": [
+              "api-reference/chat",
+              "api-reference/images",
+              "api-reference/videos",
+              "api-reference/audio",
+              "api-reference/embeddings",
+              "api-reference/rerank",
+              "api-reference/models"
+            ]
+          },
+          {
+            "group": "Guides",
+            "pages": [
+              "guides/model-selection",
+              "guides/streaming",
+              "guides/multimodal-input"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "api": {
+    "openapi": "openapi/openapi.yaml"
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/yzlltyyh/infinityblue-api-docs"
+    }
+  }
+}

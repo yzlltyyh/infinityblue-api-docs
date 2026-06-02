@@ -1,0 +1,82 @@
+---
+title: "Model Selection"
+description: "Choosing the right model for latency, cost, and capability"
+---
+
+# Model Selection
+
+No single model wins on every axis. The right choice depends on what you are building, how fast it must respond, and how much you can spend per request. This guide walks through the trade-offs and ends with a curated recommendation table.
+
+## The three axes
+
+<CardGroup cols={3}>
+  <Card title="Latency" icon="gauge-high">
+    Time to first token (TTFT) and time to last token. Critical for chat UIs and voice agents.
+  </Card>
+  <Card title="Cost" icon="coins">
+    Price per million input and output tokens. High-volume pipelines are usually cost-bound.
+  </Card>
+  <Card title="Capability" icon="wand-magic-sparkles">
+    Reasoning quality, instruction following, vision, tool use, JSON adherence, multilingual coverage.
+  </Card>
+</CardGroup>
+
+Most production systems optimize a weighted blend of the three. A classification job that runs in batch overnight is cost-bound; a customer-facing assistant is latency-bound; an agent that plans multi-step actions is capability-bound.
+
+## Decision flow
+
+<Steps>
+  <Step title="Pin the use case">
+    Write down the user-visible behavior. "Extract structured fields from invoices" is a use case. "Use AI" is not.
+  </Step>
+  <Step title="Identify the constraint">
+    Is latency, cost, or quality the binding constraint? You can usually only optimize one at a time.
+  </Step>
+  <Step title="Pick the smallest model that meets it">
+    Start with the smallest model that satisfies the constraint, then escalate only if evals show quality gaps.
+  </Step>
+  <Step title="Run an offline eval">
+    Build a 50-200 example eval set that mirrors production. Measure quality on every candidate model with the same prompt and the same judging criteria.
+  </Step>
+  <Step title="Re-evaluate on a schedule">
+    New model revisions land every few weeks. Re-run the eval on each release and promote when quality improves for a similar cost.
+  </Step>
+</Steps>
+
+## Common model comparison
+
+Numbers below are normalized to **quality points** (1-100) and **relative cost**. They are illustrative — verify on your own workload before committing.
+
+| Model | Quality | Cost | Latency | Best for |
+| --- | --- | --- | --- | --- |
+| `gpt-4o` | 90 | $$ | Fast | Default chat, vision, tool use. |
+| `gpt-4o-mini` | 78 | $ | Fastest | High-volume classification, routing, extraction. |
+| `o3` | 96 | $$$$ | Slow | Multi-step reasoning, planning, hard math. |
+| `claude-sonnet-4-5` | 92 | $$ | Fast | Long-context analysis, careful instruction following. |
+| `text-embedding-3-small` | 80 | ¢ | Fast | Vector recall for RAG. |
+| `text-embedding-3-large` | 88 | ¢¢ | Fast | Highest-quality recall for high-stakes RAG. |
+| `whisper-1` | 90 | ¢ | Fast | Speech-to-text in 50+ languages. |
+| `sora-1.0` | 85 | $$$$$ | Async | Short-form video generation. |
+
+<Info>
+  Use the [Models endpoint](/api-reference/models) to query the live catalog. New revisions and pricing updates land there first.
+</Info>
+
+## Routing strategies
+
+A single application often needs more than one model. Common patterns:
+
+- **Tiered routing.** Use a small, cheap model to classify the request, then escalate to a larger model only when the small model is not confident. Cuts cost without hurting quality on the hard cases.
+- **Cascading fallback.** Try the cheapest model first. If it returns a low confidence score, retry with the next model up. Useful for unpredictable traffic.
+- **Specialist per task.** Different models for different capabilities: `gpt-4o` for chat, `text-embedding-3-large` for retrieval, `sora-1.0` for video. The gateway dispatches each call to the right upstream.
+
+<Tip>
+  Most teams that revisit model selection quarterly find 2-3x cost savings without sacrificing quality, simply by retiring older defaults that the team never updated.
+</Tip>
+
+## What to do when evals disagree
+
+- If two models tie on quality, pick the cheaper one.
+- If a model wins on a synthetic benchmark but loses on your real eval, trust your eval.
+- If a vendor publishes a flashy new model, wait for a third-party confirmation before adopting it for production.
+- If you must move fast, run the new model on a 5-10% traffic shadow and compare user-level outcomes before fully migrating.

@@ -1,0 +1,99 @@
+---
+title: "Multimodal Input"
+description: "Passing images to chat completions"
+---
+
+# Multimodal Input
+
+Vision-capable chat models accept images inside a user message. The content becomes an array of typed parts instead of a single string. This guide covers the two ways to attach an image — by URL or as a base64 data URI — and how to mix text and images in a single turn.
+
+## Two ways to attach an image
+
+<CardGroup cols={2}>
+  <Card title="Public URL" icon="link">
+    Reference an image that the gateway can fetch over HTTPS. Best for static assets, CDN-hosted images, and pre-signed URLs.
+  </Card>
+  <Card title="Base64 data URI" icon="file-binary">
+    Inline the image bytes as a base64 string. Best for ephemeral content, user uploads, and private assets.
+  </Card>
+</CardGroup>
+
+<Tip>
+  Prefer URLs when possible. The gateway can cache and reuse them across requests. Base64 is best reserved for images that change per request.
+</Tip>
+
+## URL example
+
+Pass the image as a content part with `type: image_url`:
+
+```bash
+curl https://api.infinityblue.com/v1/chat/completions \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"model":"gpt-4o","messages":[{"role":"user","content":[{"type":"text","text":"What is in this image?"},{"type":"image_url","image_url":{"url":"https://example.com/cat.jpg"}}]}]}'
+```
+
+The URL must be reachable from the gateway. If your bucket is private, generate a short-lived pre-signed URL or switch to base64.
+
+## Base64 example
+
+Inline the bytes as a data URI:
+
+```python
+import base64
+from openai import OpenAI
+
+client = OpenAI(api_key="YOUR_API_KEY", base_url="https://api.infinityblue.com/v1")
+encoded = base64.b64encode(open("cat.jpg", "rb").read()).decode("utf-8")
+
+response = client.chat.completions.create(
+    model="gpt-4o",
+    messages=[{
+        "role": "user",
+        "content": [
+            {"type": "text", "text": "What is in this image?"},
+            {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{encoded}", "detail": "high"}},
+        ],
+    }],
+)
+print(response.choices[0].message.content)
+```
+
+<Info>
+  The `detail` parameter controls how much compute the model spends on the image. `low` is faster and cheaper; `high` reads small text and dense details; `auto` lets the model pick.
+</Info>
+
+## Multiple images in one turn
+
+Add as many content parts as you need. The model reads them in order:
+
+```json
+{
+  "model": "gpt-4o",
+  "messages": [
+    {
+      "role": "user",
+      "content": [
+        {"type": "text", "text": "Compare these two receipts and tell me which has the larger tip."},
+        {"type": "image_url", "image_url": {"url": "https://example.com/receipt-a.jpg"}},
+        {"type": "image_url", "image_url": {"url": "https://example.com/receipt-b.jpg"}}
+      ]
+    }
+  ]
+}
+```
+
+## Limits and gotchas
+
+- Each model has a maximum number of images per request and a maximum resolution. Excess is rejected with `400 invalid_request_error`.
+- Total request size — text plus encoded images — must stay under the per-request byte cap. For base64, encode the image first and check `len(b64) * 3 / 4` against the limit.
+- Some models accept PDFs in addition to images. The content type changes to `application/pdf` and the model returns structured extractions.
+- When you mix text and images, keep the text part concise. The model reads both, but verbose prompts dilute the focus on the visual.
+
+## Streaming and tools
+
+Vision works with streaming and with tool calls. The same content array works in `stream: true` requests and in requests that include `tools`. The model emits text and tool deltas the same way it does for a text-only message, with the image already understood as part of the context.
+
+<Warning>
+  Never put sensitive images in a public URL. If the asset is private, use base64 or a pre-signed URL with a short expiration.
+</Warning>

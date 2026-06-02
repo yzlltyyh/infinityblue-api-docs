@@ -1,0 +1,45 @@
+---
+title: "Introduction"
+description: "Welcome to InfinityBlue API documentation"
+---
+
+# InfinityBlue API
+
+Unified OpenAI-compatible API for chat, image, video, audio, embedding, and rerank models.
+
+## What you get
+
+<CardGroup cols={2}>
+  <Card title="Quickstart" icon="rocket" href="/quickstart/auth">
+    Get your first request working in 5 minutes
+  </Card>
+  <Card title="API Reference" icon="code" href="/api-reference/chat">
+    Explore all endpoints with interactive playground
+  </Card>
+  <Card title="Guides" icon="book" href="/guides/model-selection">
+    Learn how to choose models and use advanced features
+  </Card>
+  <Card title="GitHub" icon="github" href="https://github.com/yzlltyyh/infinityblue-api-docs">
+    Source of truth for this documentation
+  </Card>
+</CardGroup>
+
+## Authentication
+
+All requests require a Bearer token in the `Authorization` header:
+
+```bash
+curl https://api.infinityblue.com/v1/chat/completions \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "gpt-4o",
+    "messages": [{"role": "user", "content": "Hello!"}]
+  }'
+```
+
+<Note>
+  This documentation is generated from `openapi/openapi.yaml` in the
+  [GitHub repository](https://github.com/yzlltyyh/infinityblue-api-docs).
+  If you find anything missing or unclear, open an issue or PR.
+</Note>

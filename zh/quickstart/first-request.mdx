@@ -1,0 +1,106 @@
+---
+title: "第一个请求"
+description: "5 分钟内发出你的第一个 API 调用"
+---
+
+# 第一个请求
+
+本指南将带你发送一个最简单的聊天补全请求，查看响应字段，并指向最实用的后续步骤。前提是你已经拥有 API Key——如果没有，请先看 [鉴权](/zh/quickstart/auth)。
+
+## 发送请求
+
+端点是 `POST /v1/chat/completions`。请求体是 JSON，必须携带鉴权头，遵循 OpenAI 兼容协议——任何面向 `api.openai.com` 的 SDK 或教程都可以直接复用。
+
+```bash
+curl https://api.infinityblue.com/v1/chat/completions \
+  -H "Authorization: Bearer YOUR_API_KEY" -H "Content-Type: application/json" \
+  -d '{"model":"gpt-4o","messages":[{"role":"system","content":"你是一个简洁的助手。"},{"role":"user","content":"用一句话打个招呼。"}]}'
+```
+
+成功响应类似：
+
+```json
+{
+  "id": "chatcmpl-9f3a8b2e1c0d",
+  "object": "chat.completion",
+  "created": 1717430000,
+  "model": "gpt-4o-2024-08-06",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "你好！有什么可以帮你的吗？"
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 24,
+    "completion_tokens": 9,
+    "total_tokens": 33
+  }
+}
+```
+
+## 响应字段解读
+
+<CardGroup cols={2}>
+  <Card title="id" icon="fingerprint">
+    本次补全的唯一标识。可用于日志关联、客服工单和幂等性跟踪。
+  </Card>
+  <Card title="model" icon="microchip">
+    实际处理请求的上游模型。如果网关路由到更新的版本，会与你传入的别名不同。
+  </Card>
+  <Card title="choices" icon="list">
+    一个或多个补全结果的数组。`n=1`（默认）时只有一个元素。每个元素包含 `message` 字段和 `finish_reason`（`stop`、`length`、`tool_calls` 等）。
+  </Card>
+  <Card title="usage" icon="chart-line">
+    提示词与补全的 token 数量。用于估算成本和在应用中设置单次请求的预算。
+  </Card>
+</CardGroup>
+
+## 用 SDK 调用
+
+在 Python 或 JavaScript 中同样简单：
+
+```python
+from openai import OpenAI
+
+client = OpenAI(
+    api_key="YOUR_API_KEY",
+    base_url="https://api.infinityblue.com/v1",
+)
+
+reply = client.chat.completions.create(
+    model="gpt-4o",
+    messages=[{"role": "user", "content": "用一句话打个招呼。"}],
+)
+print(reply.choices[0].message.content)
+```
+
+```javascript
+import OpenAI from "openai";
+
+const client = new OpenAI({
+  apiKey: "YOUR_API_KEY",
+  baseURL: "https://api.infinityblue.com/v1",
+});
+
+const reply = await client.chat.completions.create({
+  model: "gpt-4o",
+  messages: [{ role: "user", content: "用一句话打个招呼。" }],
+});
+console.log(reply.choices[0].message.content);
+```
+
+<Info>
+  你可以继续使用 OpenAI SDK、LangChain、LlamaIndex 等任何面向 OpenAI HTTP API 的库，只需把 base URL 指向 `https://api.infinityblue.com/v1`。
+</Info>
+
+## 下一步推荐
+
+- 阅读 [错误处理](/zh/quickstart/errors) 了解网关如何报告失败、如何安全重试。
+- 查看 [Chat API 参考](/api-reference/chat) 了解完整的参数集，包括工具调用与视觉。
+- 试试 [流式响应](/guides/streaming)，让前端在 token 产出时立即渲染。
+- 通过 [模型选择](/guides/model-selection) 找到最适合你场景的模型。

@@ -1,0 +1,59 @@
+openapi: 3.1.0
+info:
+  title: InfinityBlue API
+  version: 0.1.0
+  summary: Unified OpenAI-compatible API gateway
+  description: |
+    Work in progress. This is the canonical OpenAPI specification
+    for InfinityBlue API. The Mintlify documentation site renders
+    interactive API references from this file.
+
+    Endpoints documented here:
+    - Chat completions (text, vision, tool use, streaming, reasoning)
+    - Image generation and editing
+    - Video generation (async)
+    - Audio (speech-to-text, text-to-speech)
+    - Embeddings
+    - Rerank
+    - Model discovery
+  contact:
+    name: InfinityBlue Support
+    email: support@infinityblue.com
+  license:
+    name: Proprietary
+    url: https://infinityblue.com/terms
+
+servers:
+  - url: https://api.infinityblue.com/v1
+    description: Production
+
+security:
+  - bearerAuth: []
+
+tags:
+  - name: chat
+    description: Chat completions (text, vision, tool use, streaming, reasoning)
+  - name: images
+    description: Image generation and editing
+  - name: videos
+    description: Async video generation
+  - name: audio
+    description: Speech-to-text, text-to-speech
+  - name: embeddings
+    description: Text embeddings for semantic search and RAG
+  - name: rerank
+    description: Document reranking for search relevance
+  - name: models
+    description: List and describe available models
+
+paths: {}
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: API Key
+      description: |
+        Pass your API key as a Bearer token:
+        `Authorization: Bearer YOUR_API_KEY`

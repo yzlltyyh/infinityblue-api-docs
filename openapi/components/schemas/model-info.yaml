@@ -1,0 +1,18 @@
+type: object
+required: [id, object, created, owned_by]
+properties:
+  id:
+    type: string
+    description: Model identifier (used in the `model` parameter of requests)
+    example: gpt-4o
+  object:
+    type: string
+    enum: [model]
+  created:
+    type: integer
+    description: Unix timestamp of when the model was added
+    example: 1700000000
+  owned_by:
+    type: string
+    description: Organization that owns/created the model
+    example: openai

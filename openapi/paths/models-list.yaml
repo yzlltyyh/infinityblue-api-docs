@@ -1,0 +1,20 @@
+get:
+  tags: [models]
+  summary: List available models
+  description: |
+    Lists all models currently available through InfinityBlue.
+    Use this to discover model IDs for the `model` parameter
+    of other endpoints.
+  operationId: listModels
+  x-mint:
+    metadata:
+      title: List models
+      sidebarTitle: List models
+      description: Discover all models available through InfinityBlue
+  responses:
+    "200":
+      $ref: ../components/responses/model-list.yaml
+    "401":
+      $ref: ../components/responses/unauthorized.yaml
+    "429":
+      $ref: ../components/responses/rate-limited.yaml

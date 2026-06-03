@@ -1,0 +1,84 @@
+get:
+  tags: [videos]
+  summary: Get video task status
+  description: |
+    Retrieve the current status of a video generation task. Poll this
+    endpoint until `status=completed`, or use a webhook to be notified
+    automatically.
+  operationId: getVideoTask
+  x-mint:
+    metadata:
+      title: Get video status
+      sidebarTitle: Get video status
+      description: Poll for the status of a video generation task
+  parameters:
+    - name: task_id
+      in: path
+      description: The video task ID returned from `POST /v1/videos`
+      schema:
+        type: string
+        example: video_abc123def456
+  responses:
+    "200":
+      description: Task status
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/video-task.yaml
+          examples:
+            queued:
+              summary: Task just submitted
+              value:
+                id: video_abc123def456
+                object: video
+                model: seedance-2.0
+                status: queued
+                progress: 0
+                created_at: 1700000000
+                seconds: "5"
+                size: 1280x720
+            in_progress:
+              summary: Mid-generation
+              value:
+                id: video_abc123def456
+                object: video
+                model: seedance-2.0
+                status: in_progress
+                progress: 45
+                created_at: 1700000000
+                seconds: "5"
+                size: 1280x720
+            completed:
+              summary: Done — URL available until expires_at
+              value:
+                id: video_abc123def456
+                object: video
+                model: seedance-2.0
+                status: completed
+                progress: 100
+                created_at: 1700000000
+                completed_at: 1700000120
+                expires_at: 1700003720
+                seconds: "5"
+                size: 1280x720
+                url: https://cdn.infinityblue.com/videos/abc123.mp4
+            failed:
+              summary: Generation failed
+              value:
+                id: video_abc123def456
+                object: video
+                model: seedance-2.0
+                status: failed
+                progress: 30
+                created_at: 1700000000
+                seconds: "5"
+                size: 1280x720
+                error:
+                  code: content_policy_violation
+                  message: Prompt was blocked by content filter
+    "401":
+      $ref: ../components/responses/unauthorized.yaml
+    "404":
+      $ref: ../components/responses/not-found.yaml
+    "429":
+      $ref: ../components/responses/rate-limited.yaml

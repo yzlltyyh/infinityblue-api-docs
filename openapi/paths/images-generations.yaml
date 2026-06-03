@@ -1,0 +1,83 @@
+post:
+  tags: [images]
+  summary: Create image (OpenAI format)
+  description: |
+    Generate images from a text prompt. OpenAI Images-compatible.
+    For image editing (inpainting, multi-image edit), use `/v1/images/edits`.
+    For native Gemini image generation (Nano Banana), use
+    `/v1beta/models/{model}:generateContent`.
+  operationId: createImage
+  x-mint:
+    metadata:
+      title: Generate images
+      sidebarTitle: Generate images
+      description: Text-to-image generation across multiple model providers
+    content: |
+      ## Model selection
+
+      - `gpt-image-1` — best quality, supports `transparent` background,
+        multi-image edit, `low/medium/high/auto` quality levels
+      - `dall-e-3` — reliable, supports `vivid`/`natural` style
+      - `flux-pro-1.1` — photorealistic, artistic
+      - `qwen-image` — best for **Chinese text** in images
+      - `sd-3.5-large` — open-weights style, customizable
+
+      ## Output formats
+
+      - `url` (default) — temporary URL, expires in 60 minutes
+      - `b64_json` — base64-encoded PNG bytes (for permanent storage)
+  requestBody:
+    content:
+      application/json:
+        schema:
+          $ref: ../components/schemas/image-generation-request.yaml
+        examples:
+          gpt_image_1:
+            summary: gpt-image-1 high quality
+            value:
+              model: gpt-image-1
+              prompt: A serene mountain landscape at sunset, oil painting style
+              size: 1536x1024
+              quality: high
+          dall_e_3:
+            summary: DALL-E 3 with style
+            value:
+              model: dall-e-3
+              prompt: A cute robot reading a book in a cozy library
+              size: 1024x1024
+              style: natural
+          qwen_chinese_text:
+            summary: qwen-image with Chinese text in image
+            value:
+              model: qwen-image
+              prompt: A vintage poster that says "复古海报" in bold red Chinese characters, art deco style
+              size: 1024x1536
+          multiple_images:
+            value:
+              model: gpt-image-1
+              prompt: A serene mountain landscape at sunset
+              n: 4
+              size: 1024x1024
+          transparent_bg:
+            value:
+              model: gpt-image-1
+              prompt: A red apple, isolated on white
+              background: transparent
+              output_format: png
+  responses:
+    "200":
+      description: Successful response
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/image-generation-response.yaml
+    "400":
+      $ref: ../components/responses/bad-request.yaml
+    "401":
+      $ref: ../components/responses/unauthorized.yaml
+    "403":
+      $ref: ../components/responses/forbidden.yaml
+    "429":
+      $ref: ../components/responses/rate-limited.yaml
+    "500":
+      $ref: ../components/responses/server-error.yaml

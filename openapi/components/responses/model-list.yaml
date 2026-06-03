@@ -1,0 +1,14 @@
+description: List of available models
+content:
+  application/json:
+    schema:
+      type: object
+      required: [object, data]
+      properties:
+        object:
+          type: string
+          enum: [list]
+        data:
+          type: array
+          items:
+            $ref: ../schemas/model-info.yaml

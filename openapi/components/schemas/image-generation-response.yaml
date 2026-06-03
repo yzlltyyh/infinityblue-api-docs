@@ -1,0 +1,30 @@
+type: object
+required: [created, data]
+properties:
+  created:
+    type: integer
+    description: Unix timestamp of when the images were created
+    example: 1700000000
+  data:
+    type: array
+    description: Generated images
+    items:
+      type: object
+      required: [b64_json]
+      properties:
+        b64_json:
+          type: string
+          description: |
+            Base64-encoded image. When `response_format=url` is requested
+            on a gpt-image-1 generation, this field contains the data.
+        url:
+          type: string
+          format: uri
+          description: |
+            Temporary image URL. Expires in 60 minutes. Download and
+            re-host if you need to keep the image.
+        revised_prompt:
+          type: string
+          description: |
+            DALL-E 3 only. The prompt the model actually used after
+            safety/quality rewrites.

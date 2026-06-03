@@ -1,0 +1,142 @@
+post:
+  tags: [videos]
+  summary: Create video generation task
+  description: |
+    Submit a video generation task. Async — you receive a `VideoTask`
+    immediately with `status=queued` or `in_progress`. Poll
+    `GET /v1/videos/{task_id}` to check progress, or register a webhook
+    to be notified on completion.
+
+    **All video models share this endpoint.** The model is selected via
+    the `model` parameter; supported parameters and output formats
+    vary by model — see the [model reference](/guides/model-selection).
+
+    ## Supported models
+
+    | Model | Duration | Resolutions | Notable features |
+    |---|---|---|---|
+    | `seedance-2.0` | 5s, 10s | 720p, 1080p | Ref images, fast |
+    | `veo_3_1-fast` | 8s | 720p, 1080p | Audio generation, ref images |
+    | `veo_3_1-pro` | 8s | 720p, 1080p, 4K | Highest quality, audio |
+    | `sora-2` | 5s, 10s, 15s, 20s | 1080p | Long-form, cinematic |
+    | `kling-1.6-pro` | 5s, 10s | 1080p | Strong motion, character ref |
+  operationId: createVideo
+  x-mint:
+    metadata:
+      title: Create video
+      sidebarTitle: Create video
+      description: |
+        Async video generation. Returns a task ID — poll for completion
+        or use webhooks.
+    content: |
+      ## Webhooks vs polling
+
+      **Recommended for production**: register a webhook URL in your
+      dashboard. The gateway will POST the completed `VideoTask` to
+      your endpoint when the video is ready.
+
+      **For quick tests**: poll `GET /v1/videos/{task_id}` every 5-10s
+      until `status=completed`.
+
+      Typical generation time: 30s - 3min depending on model and length.
+
+      ## Cost
+
+      Each `n` count is a separate task. A request with `n: 4` and
+      `seconds: "10"` generates 4 × 10-second videos.
+  requestBody:
+    content:
+      application/json:
+        schema:
+          $ref: ../components/schemas/video-creation-request.yaml
+        examples:
+          seedance_text:
+            summary: Seedance 2.0 — text-to-video
+            value:
+              model: seedance-2.0
+              prompt: A cat playing piano in a jazz club, smoke, warm lighting, cinematic
+              size: 1280x720
+              seconds: "5"
+          seedance_i2v:
+            summary: Seedance 2.0 — image-to-video
+            value:
+              model: seedance-2.0
+              prompt: The character walks forward, then waves at the camera
+              ref_images:
+                - https://example.com/character-reference.png
+              size: 1280x720
+              seconds: "5"
+          veo_fast:
+            summary: Veo 3.1 fast with audio
+            value:
+              model: veo_3_1-fast
+              prompt: Ocean waves crashing on rocks at sunset, with seagulls crying
+              size: 1280x720
+              seconds: "8"
+              metadata:
+                audio: true
+          veo_pro:
+            summary: Veo 3.1 pro — 4K with audio
+            value:
+              model: veo_3_1-pro
+              prompt: A futuristic city skyline at night, neon lights reflecting on wet streets
+              size: 1920x1080
+              seconds: "8"
+              metadata:
+                audio: true
+                style: cinematic
+                camera: pan_right
+          sora_2_long:
+            summary: Sora 2 — long-form cinematic
+            value:
+              model: sora-2
+              prompt: |
+                A detective walks through a rainy 1940s city street, camera follows
+                from behind, neon signs reflect in puddles, jazz music plays from
+                a nearby club. Cinematic, noir, 35mm film grain.
+              size: 1920x1080
+              seconds: "15"
+              seed: 12345
+              metadata:
+                style: noir
+                quality_level: high
+          kling_character:
+            summary: Kling — character consistency
+            value:
+              model: kling-1.6-pro
+              prompt: The character dances happily in a field of flowers
+              ref_images:
+                - https://example.com/character-front.png
+                - https://example.com/character-side.png
+              size: 1280x720
+              seconds: "10"
+              metadata:
+                negative_prompt: "blurry, distorted, extra limbs"
+  responses:
+    "200":
+      description: |
+        Task created. Status will be `queued` or `in_progress`. Poll
+        `GET /v1/videos/{task_id}` for updates.
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/video-task.yaml
+          example:
+            id: video_abc123def456
+            object: video
+            model: seedance-2.0
+            status: queued
+            progress: 0
+            created_at: 1700000000
+            seconds: "5"
+            size: 1280x720
+    "400":
+      $ref: ../components/responses/bad-request.yaml
+    "401":
+      $ref: ../components/responses/unauthorized.yaml
+    "403":
+      $ref: ../components/responses/forbidden.yaml
+    "429":
+      $ref: ../components/responses/rate-limited.yaml
+    "500":
+      $ref: ../components/responses/server-error.yaml

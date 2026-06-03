@@ -1,0 +1,31 @@
+type: object
+required: [id, object, created, model, choices]
+properties:
+  id:
+    type: string
+    description: Unique chat completion ID
+    example: chatcmpl-abc123
+  object:
+    type: string
+    enum: [chat.completion]
+  created:
+    type: integer
+    description: Unix timestamp of when the completion was created
+    example: 1700000000
+  model:
+    type: string
+    description: Model used for the completion
+    example: gpt-4o-2024-08-06
+  choices:
+    type: array
+    minItems: 1
+    items:
+      $ref: ./chat-completion-choice.yaml
+  usage:
+    $ref: ./usage.yaml
+  system_fingerprint:
+    type: string
+    description: |
+      Identifier for the backend configuration. Useful for debugging
+      reproducibility issues.
+    example: fp_abc123

@@ -1,0 +1,130 @@
+post:
+  tags: [chat]
+  summary: Create chat completion (OpenAI format)
+  description: |
+    OpenAI-compatible chat completions. Works with any model in
+    InfinityBlue (OpenAI, Anthropic, Google, etc.).
+
+    For native Anthropic format use `/v1/messages`.
+    For native Gemini format use `/v1beta/models/{model}:generateContent`.
+  operationId: createChatCompletion
+  x-mint:
+    metadata:
+      title: Chat completions
+      sidebarTitle: Chat completions
+      description: |
+        Generate text, vision, tool-calling, and streaming responses
+        in OpenAI-compatible format
+    content: |
+      ## Streaming
+
+      Set `stream: true` to receive Server-Sent Events. See the
+      [Streaming guide](/guides/streaming) for details.
+
+      ## Reasoning models
+
+      For `o-series`, `claude-3-7-sonnet-thinking`, or `gemini-2.5-pro-thinking`,
+      the model returns reasoning tokens in a separate `reasoning_content`
+      field. Render them collapsed in your UI.
+
+      ## Tool calling
+
+      Up to 128 tools per request. Set `tool_choice` to control which
+      tool the model calls (`auto`, `none`, `required`, or force a specific
+      function name).
+  requestBody:
+    content:
+      application/json:
+        schema:
+          $ref: ../components/schemas/chat-completion-request.yaml
+        examples:
+          gpt4o_simple:
+            summary: Simple chat with GPT-4o
+            value:
+              model: gpt-4o
+              messages:
+                - role: user
+                  content: Hello!
+          claude_streaming:
+            summary: Streaming with Claude
+            value:
+              model: claude-sonnet-4-6
+              stream: true
+              messages:
+                - role: user
+                  content: Write a haiku about programming
+          vision:
+            summary: Vision input
+            value:
+              model: gpt-4o
+              messages:
+                - role: user
+                  content:
+                    - type: text
+                      text: What's in this image?
+                    - type: image_url
+                      image_url:
+                        url: https://upload.wikimedia.org/wikipedia/commons/thumb/3/3a/Cat03.jpg/640px-Cat03.jpg
+          tool_calling:
+            summary: Function calling
+            value:
+              model: gpt-4o
+              messages:
+                - role: user
+                  content: What's the weather in Paris?
+              tools:
+                - type: function
+                  function:
+                    name: get_weather
+                    description: Get current weather for a city
+                    parameters:
+                      type: object
+                      properties:
+                        location:
+                          type: string
+                          description: City name
+                      required: [location]
+              tool_choice: auto
+          json_mode:
+            summary: Structured output (JSON schema)
+            value:
+              model: gpt-4o
+              messages:
+                - role: system
+                  content: Extract the city and country from the user's message.
+                - role: user
+                  content: I just moved to Paris, France
+              response_format:
+                type: json_schema
+                json_schema:
+                  name: location
+                  schema:
+                    type: object
+                    properties:
+                      city: { type: string }
+                      country: { type: string }
+                    required: [city, country]
+                    additionalProperties: false
+  responses:
+    "200":
+      description: Successful response
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/chat-completion-response.yaml
+        text/event-stream:
+          schema:
+            type: string
+            description: |
+              Server-Sent Events when `stream=true`. Each line is
+              `data: {json}`. Stream ends with `data: [DONE]`.
+    "400":
+      $ref: ../components/responses/bad-request.yaml
+    "401":
+      $ref: ../components/responses/unauthorized.yaml
+    "403":
+      $ref: ../components/responses/forbidden.yaml
+    "429":
+      $ref: ../components/responses/rate-limited.yaml
+    "500":
+      $ref: ../components/responses/server-error.yaml

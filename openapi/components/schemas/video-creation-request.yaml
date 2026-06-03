@@ -1,0 +1,94 @@
+type: object
+description: |
+  Submit a video generation task. The response is a `VideoTask` with
+  `status=queued` or `in_progress`. Poll `GET /v1/videos/{id}` or
+  register a webhook to receive completion.
+
+  The supported parameters vary by model. Common parameters are listed
+  below; model-specific extensions go in `metadata`.
+required: [model, prompt]
+properties:
+  model:
+    type: string
+    description: |
+      Video model to use. Determines which parameters and capabilities
+      are available.
+      - `seedance-2.0` — ByteDance Seedance 2.0 (5-10s, 720p/1080p)
+      - `veo_3_1-fast` — Google Veo 3.1 fast (8s, 720p/1080p)
+      - `veo_3_1-pro` — Google Veo 3.1 pro (8s, 4K)
+      - `sora-2` — OpenAI Sora 2 (5-20s, 1080p)
+      - `kling-1.6-pro` — Kuaishou Kling 1.6 (5-10s, 1080p)
+    example: seedance-2.0
+  prompt:
+    type: string
+    minLength: 1
+    maxLength: 4000
+    description: |
+      Text description of the desired video. Describe subject, action,
+      camera movement, lighting, and style. Most models support 200-500
+      tokens; longer is more expensive.
+    example: A cat playing piano in a jazz club, smoke, warm lighting, cinematic
+  ref_images:
+    type: array
+    description: |
+      Reference images to guide generation. Use for image-to-video
+      (i2v) or character/style consistency.
+      Each entry is either a public URL or a `data:image/...;base64,...`
+      data URI. Most models support 1-4 reference images.
+    items:
+      type: string
+      format: uri
+    example:
+      - https://example.com/reference-character.jpg
+  size:
+    type: string
+    description: |
+      Output resolution. Format: `WxH`.
+      - `seedance-2.0`: 1280x720, 720x1280, 1920x1080, 1080x1920
+      - `veo_3_1-fast`: 1280x720, 720x1280, 1920x1080, 1080x1920
+      - `sora-2`: 1280x720, 720x1280, 1920x1080, 1080x1920
+    example: 1280x720
+  seconds:
+    type: string
+    description: |
+      Output duration. Model-dependent:
+      - `seedance-2.0`: "5" or "10"
+      - `veo_3_1-fast`/`pro`: "8"
+      - `sora-2`: "5", "10", "15", "20"
+    example: "5"
+  seed:
+    type: integer
+    description: |
+      Random seed for reproducibility. Same seed + same prompt + same
+      parameters → similar output.
+    example: 20231234
+  n:
+    type: integer
+    minimum: 1
+    maximum: 4
+    default: 1
+    description: How many videos to generate. Each counts as a separate task.
+  response_format:
+    type: string
+    enum: [url, b64_json]
+    default: url
+    description: |
+      How the final video is returned in the task object.
+  user:
+    type: string
+    description: Unique end-user identifier (for abuse detection and per-user rate limits)
+    example: user-1234
+  metadata:
+    type: object
+    additionalProperties: true
+    description: |
+      Model-specific extensions. Common fields:
+      - `negative_prompt` (string): what to avoid
+      - `style` (string): style preset (e.g. "cinematic", "anime")
+      - `camera` (string): camera movement (e.g. "zoom_in", "pan_left")
+      - `fps` (integer): frames per second
+      - `audio` (boolean): include generated audio (Veo 3+)
+    example:
+      negative_prompt: "blurry, low quality, distorted"
+      style: cinematic
+      audio: true

@@ -1,0 +1,13 @@
+description: |
+  Server error. Either our gateway or an upstream provider failed.
+  Safe to retry with exponential backoff. Report if persistent.
+content:
+  application/json:
+    schema:
+      $ref: ../schemas/error.yaml
+    example:
+      error:
+        message: Upstream provider returned an error
+        type: server_error
+        code: upstream_error
+        param: null

@@ -1,0 +1,29 @@
+type: object
+required: [prompt_tokens, completion_tokens, total_tokens]
+properties:
+  prompt_tokens:
+    type: integer
+    description: Tokens in the input
+  completion_tokens:
+    type: integer
+    description: Tokens in the generated output
+  total_tokens:
+    type: integer
+    description: prompt_tokens + completion_tokens
+  prompt_tokens_details:
+    type: object
+    description: |
+      Breakdown of input tokens (e.g. cached tokens with discount).
+    properties:
+      cached_tokens:
+        type: integer
+        description: Tokens served from cache (often discounted)
+  completion_tokens_details:
+    type: object
+    description: Breakdown of output tokens.
+    properties:
+      reasoning_tokens:
+        type: integer
+        description: |
+          Reasoning tokens (for o-series, Claude thinking, Gemini thinking).
+          Often billed differently than regular output tokens.

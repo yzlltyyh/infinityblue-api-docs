@@ -1,0 +1,43 @@
+type: object
+required: [role, content]
+properties:
+  role:
+    type: string
+    enum: [system, user, assistant, tool, developer]
+    description: |
+      The role of the message author.
+      - `system`: top-level instructions (highest priority for most models)
+      - `developer`: alias of system in newer OpenAI models
+      - `user`: end-user input
+      - `assistant`: prior model output
+      - `tool`: tool/function result
+  content:
+    description: |
+      Message content. Can be plain text (string) or an array of multimodal
+      parts (text + image_url + input_audio).
+    oneOf:
+      - type: string
+        example: Hello, how are you?
+      - type: array
+        items:
+          oneOf:
+            - $ref: ./content-part-text.yaml
+            - $ref: ./content-part-image.yaml
+            - $ref: ./content-part-audio.yaml
+  name:
+    type: string
+    description: |
+      Optional name of the author. Used to identify participants in
+      multi-user conversations or to label tool results.
+  tool_call_id:
+    type: string
+    description: |
+      Required when `role` is `tool`. The ID of the tool call this
+      message is responding to.
+    example: call_abc123
+  tool_calls:
+    type: array
+    description: |
+      Present on `assistant` messages when the model wants to call tools.
+    items:
+      $ref: ./tool-call.yaml

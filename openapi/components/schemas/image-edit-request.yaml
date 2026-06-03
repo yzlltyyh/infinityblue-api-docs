@@ -1,0 +1,58 @@
+type: object
+description: |
+  Multipart form data request (NOT JSON) for image editing.
+  Send with `Content-Type: multipart/form-data`.
+
+  At least one of `image` or `images` must be provided.
+properties:
+  image:
+    type: string
+    format: binary
+    description: |
+      Single source image (PNG, ≤ 4MB, square). Either this or `images`
+      must be provided.
+  images:
+    type: array
+    description: |
+      Multiple source images (for gpt-image-1 multi-image edits).
+    items:
+      type: string
+      format: binary
+  mask:
+    type: string
+    format: binary
+    description: |
+      Optional PNG mask. Transparent areas will be edited; opaque areas
+      will be preserved.
+  prompt:
+    type: string
+    description: Text description of the desired edit.
+    example: Add a hat on the cat
+  model:
+    type: string
+    description: |
+      Model to use. `gpt-image-1` and `dall-e-2` support edits.
+    example: gpt-image-1
+  n:
+    type: integer
+    minimum: 1
+    maximum: 10
+    default: 1
+  size:
+    type: string
+    enum: [1024x1024, 1024x1536, 1536x1024, auto]
+    default: 1024x1024
+  response_format:
+    type: string
+    enum: [url, b64_json]
+    default: url
+  input_fidelity:
+    type: string
+    enum: [low, high, auto]
+    default: high
+    description: |
+      gpt-image-1 only. How closely to preserve input image features.
+      `high` (default) preserves more detail but may be less creative.
+  user:
+    type: string
+    description: Unique end-user identifier

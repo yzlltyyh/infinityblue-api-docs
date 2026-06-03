@@ -1,0 +1,463 @@
+openapi: 3.1.0
+info:
+  title: InfinityBlue API — Models
+  version: "1.0.0"
+  summary: List currently available AI models
+  description: |
+    This file covers the InfinityBlue model listing endpoints:
+
+    - `GET /v1/models` — OpenAI-compatible format, works with any OpenAI SDK
+    - `GET /v1beta/models` — Gemini native format, works with the Google Generative AI SDK
+
+    Both endpoints expose the same underlying pool of models in different response shapes.
+    The model list is dynamic and updated as InfinityBlue onboards new providers.
+    See the [pricing page](https://api.getinfinityblue.com/pricing) for the full list and pricing.
+
+    ## Authentication
+
+    Every request must include your API key in the header:
+
+    ```
+    Authorization: Bearer YOUR_API_KEY
+    ```
+
+    Create and manage your API keys in the [console](https://getinfinityblue.com).
+  contact:
+    name: InfinityBlue
+    url: https://getinfinityblue.com
+
+servers:
+  - url: https://api.getinfinityblue.com
+    description: Production
+
+security:
+  - bearerAuth: []
+
+tags:
+  - name: Models
+    description: |
+      List all AI models currently available through InfinityBlue.
+      Supports both the OpenAI-compatible and Gemini native response formats.
+
+paths:
+  /v1/models:
+    get:
+      tags:
+        - Models
+      summary: List available models (OpenAI format)
+      operationId: listModels
+      description: |
+        Returns the list of all currently available models in OpenAI-compatible format.
+        Works with the OpenAI SDK out of the box — point `base_url` at InfinityBlue
+        and call `client.models.list()` with no other changes.
+
+        The endpoint auto-detects the desired response format from request headers:
+        - Returns Anthropic format when `x-api-key` and `anthropic-version` are present
+        - Returns Gemini format when `x-goog-api-key` or query parameter `key` is present
+        - Returns OpenAI format otherwise (the scenario documented here)
+
+        The model list is dynamic and reflects the latest set of models available
+        through InfinityBlue.
+      x-mint:
+        metadata:
+          title: List available models (OpenAI format)
+          sidebarTitle: List models · OpenAI format
+          description: Return all InfinityBlue models in OpenAI-compatible format
+        content: |
+          ## Available models
+
+          A selection of real model IDs available today (full list is dynamic — use the API):
+
+          | Model ID | Notes |
+          | --- | --- |
+          | `gpt-5.4` | GPT-5 flagship — top reasoning / coding / agentic, 1M context |
+          | `gpt-5.4-mini` | Lightweight and balanced — ideal for high-volume workloads |
+          | `gemini-3.1-pro-preview` | Gemini flagship — strong multimodal, 1M context |
+          | `gemini-2.5-pro` | Gemini 2.5 Pro — strong reasoning and coding |
+          | `deepseek-v4-pro` | DeepSeek cost-effective reasoning model |
+          | `gpt-image-2` | GPT Image generation model |
+          | `doubao-seedance-2-0-260128` | ByteDance Seedance video generation model |
+
+          See the [pricing page](https://api.getinfinityblue.com/pricing) for the full list.
+
+          ## Using the OpenAI SDK
+
+          ```python
+          from openai import OpenAI
+
+          client = OpenAI(
+              api_key="YOUR_API_KEY",
+              base_url="https://api.getinfinityblue.com/v1"
+          )
+
+          models = client.models.list()
+          for model in models.data:
+              print(model.id)
+          ```
+
+          ## Format auto-detection
+
+          The endpoint switches response format based on request headers automatically.
+          Using `Authorization: Bearer` authentication returns the OpenAI format.
+      parameters:
+        - name: key
+          in: query
+          description: Google API Key (triggers Gemini-format response when provided, optional)
+          required: false
+          schema:
+            type: string
+        - name: x-api-key
+          in: header
+          description: Anthropic API Key (triggers Anthropic-format response when provided, optional)
+          required: false
+          schema:
+            type: string
+        - name: anthropic-version
+          in: header
+          description: |
+            Anthropic API version, used alongside `x-api-key` (optional).
+            Example: `2023-06-01`
+          required: false
+          schema:
+            type: string
+            examples:
+              - "2023-06-01"
+        - name: x-goog-api-key
+          in: header
+          description: Google API Key (triggers Gemini-format response when provided, optional)
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Successfully returned the model list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ModelListResponse"
+              examples:
+                default:
+                  summary: Typical response
+                  value:
+                    object: list
+                    data:
+                      - id: gpt-5.4
+                        object: model
+                        created: 1700000000
+                        owned_by: openai
+                      - id: gpt-5.4-mini
+                        object: model
+                        created: 1700000001
+                        owned_by: openai
+                      - id: gemini-3.1-pro-preview
+                        object: model
+                        created: 1700000002
+                        owned_by: google
+                      - id: gemini-2.5-pro
+                        object: model
+                        created: 1700000003
+                        owned_by: google
+                      - id: deepseek-v4-pro
+                        object: model
+                        created: 1700000004
+                        owned_by: deepseek
+                      - id: gpt-image-2
+                        object: model
+                        created: 1700000005
+                        owned_by: openai
+                      - id: doubao-seedance-2-0-260128
+                        object: model
+                        created: 1700000006
+                        owned_by: bytedance
+        "400":
+          description: Invalid request parameters
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Invalid or missing API key
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /v1beta/models:
+    get:
+      tags:
+        - Models
+      summary: List available models (Gemini format)
+      operationId: listModelsGemini
+      description: |
+        Returns the list of all currently available models in Google Gemini native format.
+        Works with the Google Generative AI SDK — point `api_endpoint` at InfinityBlue
+        and call `genai.list_models()` to enumerate all available models.
+
+        Response fields match the Gemini API specification exactly, including `name`,
+        `displayName`, `description`, `inputTokenLimit`, `outputTokenLimit`,
+        and `supportedGenerationMethods`.
+
+        The model list is dynamic and reflects the latest set of models available
+        through InfinityBlue.
+      x-mint:
+        metadata:
+          title: List available models (Gemini format)
+          sidebarTitle: List models · Gemini format
+          description: Return all InfinityBlue models in Google Gemini native format
+        content: |
+          ## Available models
+
+          A selection of real models available today (full list is dynamic — use the API):
+
+          | name | displayName |
+          | --- | --- |
+          | `models/gemini-3.1-pro-preview` | Gemini 3.1 Pro Preview |
+          | `models/gemini-2.5-pro` | Gemini 2.5 Pro |
+          | `models/gpt-5.4` | GPT-5.4 |
+          | `models/gpt-5.4-mini` | GPT-5.4 Mini |
+          | `models/deepseek-v4-pro` | DeepSeek V4 Pro |
+
+          See the [pricing page](https://api.getinfinityblue.com/pricing) for the full list.
+
+          ## Using the Google Generative AI SDK
+
+          ```python
+          import google.generativeai as genai
+
+          genai.configure(
+              api_key="YOUR_API_KEY",
+              client_options={"api_endpoint": "https://api.getinfinityblue.com"}
+          )
+
+          for model in genai.list_models():
+              print(model.name, model.display_name)
+          ```
+
+          ## Field notes
+
+          `supportedGenerationMethods` lists the invocation modes the model supports.
+          Common values: `generateContent`, `streamGenerateContent`, `embedContent`.
+      responses:
+        "200":
+          description: Successfully returned the model list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GeminiModelListResponse"
+              examples:
+                default:
+                  summary: Typical response
+                  value:
+                    models:
+                      - name: models/gemini-3.1-pro-preview
+                        version: "003"
+                        displayName: Gemini 3.1 Pro Preview
+                        description: Gemini flagship multimodal model with 1M context window
+                        inputTokenLimit: 1048576
+                        outputTokenLimit: 65536
+                        supportedGenerationMethods:
+                          - generateContent
+                          - streamGenerateContent
+                      - name: models/gemini-2.5-pro
+                        version: "001"
+                        displayName: Gemini 2.5 Pro
+                        description: Strong reasoning and code generation capabilities
+                        inputTokenLimit: 1048576
+                        outputTokenLimit: 65536
+                        supportedGenerationMethods:
+                          - generateContent
+                          - streamGenerateContent
+                      - name: models/gpt-5.4
+                        version: "001"
+                        displayName: GPT-5.4
+                        description: GPT-5 flagship with top reasoning and agentic capabilities
+                        inputTokenLimit: 1000000
+                        outputTokenLimit: 32768
+                        supportedGenerationMethods:
+                          - generateContent
+                          - streamGenerateContent
+                      - name: models/deepseek-v4-pro
+                        version: "001"
+                        displayName: DeepSeek V4 Pro
+                        description: DeepSeek cost-effective reasoning model
+                        inputTokenLimit: 131072
+                        outputTokenLimit: 16384
+                        supportedGenerationMethods:
+                          - generateContent
+                          - streamGenerateContent
+        "400":
+          description: Invalid request parameters
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Invalid or missing API key
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: API Key
+      description: |
+        Bearer token authentication, format: `Authorization: Bearer sk-xxxxxx`.
+        Get your API key in the [console](https://getinfinityblue.com).
+
+  schemas:
+    ModelListResponse:
+      type: object
+      description: OpenAI-format model list response.
+      properties:
+        object:
+          type: string
+          description: Object type, always `list`.
+          examples:
+            - list
+        data:
+          type: array
+          description: The list of available models.
+          items:
+            $ref: "#/components/schemas/ModelInfo"
+
+    ModelInfo:
+      type: object
+      description: A single model descriptor in OpenAI format.
+      properties:
+        id:
+          type: string
+          description: |
+            Model ID used in the `model` parameter of other endpoints.
+            For example: `gpt-5.4`, `gemini-2.5-pro`, `deepseek-v4-pro`.
+          examples:
+            - gpt-5.4
+        object:
+          type: string
+          description: Object type, always `model`.
+          examples:
+            - model
+        created:
+          type: integer
+          description: Unix timestamp (seconds) when the model was created.
+          examples:
+            - 1700000000
+        owned_by:
+          type: string
+          description: Vendor identifier, e.g. `openai`, `google`, `deepseek`, `bytedance`.
+          examples:
+            - openai
+
+    GeminiModelListResponse:
+      type: object
+      description: Gemini native format model list response.
+      properties:
+        models:
+          type: array
+          description: The list of available models.
+          items:
+            $ref: "#/components/schemas/GeminiModelInfo"
+
+    GeminiModelInfo:
+      type: object
+      description: A single model descriptor in Gemini native format.
+      properties:
+        name:
+          type: string
+          description: |
+            Resource name in the form `models/{model-id}`.
+            Used to identify the model in the Gemini SDK.
+          examples:
+            - models/gemini-3.1-pro-preview
+        version:
+          type: string
+          description: Model version string.
+          examples:
+            - "003"
+        displayName:
+          type: string
+          description: Human-readable model name.
+          examples:
+            - Gemini 3.1 Pro Preview
+        description:
+          type: string
+          description: Brief description of the model's capabilities.
+          examples:
+            - Gemini flagship multimodal model with 1M context window
+        inputTokenLimit:
+          type: integer
+          description: Maximum number of input tokens per request (context window size).
+          examples:
+            - 1048576
+        outputTokenLimit:
+          type: integer
+          description: Maximum number of output tokens per request.
+          examples:
+            - 65536
+        supportedGenerationMethods:
+          type: array
+          description: |
+            Generation modes supported by this model. Common values:
+            - `generateContent`: non-streaming generation
+            - `streamGenerateContent`: streaming generation
+            - `embedContent`: text embedding
+          items:
+            type: string
+          examples:
+            - - generateContent
+              - streamGenerateContent
+
+    ErrorResponse:
+      type: object
+      description: Standard error response.
+      properties:
+        error:
+          type: object
+          properties:
+            message:
+              type: string
+              description: Error message.
+              examples:
+                - Invalid API key provided.
+            type:
+              type: string
+              description: Error type.
+              examples:
+                - invalid_request_error
+            param:
+              type: [string, "null"]
+              description: The parameter related to the error, or null if not applicable.
+              examples:
+                - model
+            code:
+              type: [string, "null"]
+              description: Machine-readable error code, or null if not applicable.
+              examples:
+                - invalid_api_key

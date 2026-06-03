@@ -11,7 +11,7 @@ description: "如何使用 API Key 鉴权"
 
 <Steps>
   <Step title="登录">
-    打开 [InfinityBlue 控制台](https://infinityblue.com) 并登录。
+    打开 [InfinityBlue 控制台](https://getinfinityblue.com) 并登录。
   </Step>
   <Step title="进入 API Key 页面">
     导航到 **设置 → API Key**。页面会列出工作区下所有 Key 及其创建时间、最近使用时间。
@@ -30,10 +30,10 @@ description: "如何使用 API Key 鉴权"
 Key 通过 Bearer 方案放在 `Authorization` 请求头中：
 
 ```bash
-curl https://api.infinityblue.com/v1/chat/completions \
+curl https://api.getinfinityblue.com/v1/chat/completions \
   -H "Authorization: Bearer YOUR_API_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"model": "gpt-4o", "messages": [{"role": "user", "content": "你好"}]}'
+  -d '{"model": "gpt-5.4", "messages": [{"role": "user", "content": "你好"}]}'
 ```
 
 使用官方 OpenAI SDK 时，把 base URL 指向 InfinityBlue 即可，Key 通过环境变量传入：
@@ -44,11 +44,11 @@ from openai import OpenAI
 
 client = OpenAI(
     api_key=os.environ["INFINITYBLUE_API_KEY"],
-    base_url="https://api.infinityblue.com/v1",
+    base_url="https://api.getinfinityblue.com/v1",
 )
 
 response = client.chat.completions.create(
-    model="gpt-4o",
+    model="gpt-5.4",
     messages=[{"role": "user", "content": "你好"}],
 )
 ```
@@ -58,11 +58,11 @@ import OpenAI from "openai";
 
 const client = new OpenAI({
   apiKey: process.env.INFINITYBLUE_API_KEY,
-  baseURL: "https://api.infinityblue.com/v1",
+  baseURL: "https://api.getinfinityblue.com/v1",
 });
 
 const response = await client.chat.completions.create({
-  model: "gpt-4o",
+  model: "gpt-5.4",
   messages: [{ role: "user", content: "你好" }],
 });
 ```
@@ -91,7 +91,7 @@ const response = await client.chat.completions.create({
     已撤销或已删除的 Key 也会返回 `401`。回到控制台确认 Key 状态。
   </Step>
   <Step title="确认 Base URL">
-    确保请求发到 `https://api.infinityblue.com/v1` 而非其他域名。不同环境使用不同 Key 命名空间。
+    确保请求发到 `https://api.getinfinityblue.com/v1` 而非其他域名。不同环境使用不同 Key 命名空间。
   </Step>
 </Steps>
 

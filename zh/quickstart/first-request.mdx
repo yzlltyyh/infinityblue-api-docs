@@ -12,9 +12,9 @@ description: "5 分钟内发出你的第一个 API 调用"
 端点是 `POST /v1/chat/completions`。请求体是 JSON，必须携带鉴权头，遵循 OpenAI 兼容协议——任何面向 `api.openai.com` 的 SDK 或教程都可以直接复用。
 
 ```bash
-curl https://api.infinityblue.com/v1/chat/completions \
+curl https://api.getinfinityblue.com/v1/chat/completions \
   -H "Authorization: Bearer YOUR_API_KEY" -H "Content-Type: application/json" \
-  -d '{"model":"gpt-4o","messages":[{"role":"system","content":"你是一个简洁的助手。"},{"role":"user","content":"用一句话打个招呼。"}]}'
+  -d '{"model":"gpt-5.4","messages":[{"role":"system","content":"你是一个简洁的助手。"},{"role":"user","content":"用一句话打个招呼。"}]}'
 ```
 
 成功响应类似：
@@ -24,7 +24,7 @@ curl https://api.infinityblue.com/v1/chat/completions \
   "id": "chatcmpl-9f3a8b2e1c0d",
   "object": "chat.completion",
   "created": 1717430000,
-  "model": "gpt-4o-2024-08-06",
+  "model": "gpt-5.4",
   "choices": [
     {
       "index": 0,
@@ -69,11 +69,11 @@ from openai import OpenAI
 
 client = OpenAI(
     api_key="YOUR_API_KEY",
-    base_url="https://api.infinityblue.com/v1",
+    base_url="https://api.getinfinityblue.com/v1",
 )
 
 reply = client.chat.completions.create(
-    model="gpt-4o",
+    model="gpt-5.4",
     messages=[{"role": "user", "content": "用一句话打个招呼。"}],
 )
 print(reply.choices[0].message.content)
@@ -84,23 +84,22 @@ import OpenAI from "openai";
 
 const client = new OpenAI({
   apiKey: "YOUR_API_KEY",
-  baseURL: "https://api.infinityblue.com/v1",
+  baseURL: "https://api.getinfinityblue.com/v1",
 });
 
 const reply = await client.chat.completions.create({
-  model: "gpt-4o",
+  model: "gpt-5.4",
   messages: [{ role: "user", content: "用一句话打个招呼。" }],
 });
 console.log(reply.choices[0].message.content);
 ```
 
 <Info>
-  你可以继续使用 OpenAI SDK、LangChain、LlamaIndex 等任何面向 OpenAI HTTP API 的库，只需把 base URL 指向 `https://api.infinityblue.com/v1`。
+  你可以继续使用 OpenAI SDK、LangChain、LlamaIndex 等任何面向 OpenAI HTTP API 的库，只需把 base URL 指向 `https://api.getinfinityblue.com/v1`。
 </Info>
 
 ## 下一步推荐
 
 - 阅读 [错误处理](/zh/quickstart/errors) 了解网关如何报告失败、如何安全重试。
-- 查看 [Chat API 参考](/api-reference/chat) 了解完整的参数集，包括工具调用与视觉。
-- 试试 [流式响应](/guides/streaming)，让前端在 token 产出时立即渲染。
-- 通过 [模型选择](/guides/model-selection) 找到最适合你场景的模型。
+- 试试 [流式响应](/zh/guides/streaming)，让前端在 token 产出时立即渲染。
+- 通过 [模型选择](/zh/guides/model-selection) 找到最适合你场景的模型。

@@ -5,7 +5,7 @@ description: "Choosing the right model for latency, cost, and capability"
 
 # Model Selection
 
-No single model wins on every axis. The right choice depends on what you are building, how fast it must respond, and how much you can spend per request. This guide walks through the trade-offs and ends with a curated recommendation table.
+No single model wins on every axis. The right choice depends on what you are building, how fast it must respond, and how much you can spend per request. This guide walks through the trade-offs and ends with a curated capability table.
 
 ## The three axes
 
@@ -14,7 +14,7 @@ No single model wins on every axis. The right choice depends on what you are bui
     Time to first token (TTFT) and time to last token. Critical for chat UIs and voice agents.
   </Card>
   <Card title="Cost" icon="coins">
-    Price per million input and output tokens. High-volume pipelines are usually cost-bound.
+    Price per million input and output tokens. High-volume pipelines are usually cost-bound. See the [live pricing page](https://api.getinfinityblue.com/pricing) for current numbers.
   </Card>
   <Card title="Capability" icon="wand-magic-sparkles">
     Reasoning quality, instruction following, vision, tool use, JSON adherence, multilingual coverage.
@@ -43,24 +43,47 @@ Most production systems optimize a weighted blend of the three. A classification
   </Step>
 </Steps>
 
-## Common model comparison
-
-Numbers below are normalized to **quality points** (1-100) and **relative cost**. They are illustrative — verify on your own workload before committing.
-
-| Model | Quality | Cost | Latency | Best for |
-| --- | --- | --- | --- | --- |
-| `gpt-4o` | 90 | $$ | Fast | Default chat, vision, tool use. |
-| `gpt-4o-mini` | 78 | $ | Fastest | High-volume classification, routing, extraction. |
-| `o3` | 96 | $$$$ | Slow | Multi-step reasoning, planning, hard math. |
-| `claude-sonnet-4-5` | 92 | $$ | Fast | Long-context analysis, careful instruction following. |
-| `text-embedding-3-small` | 80 | ¢ | Fast | Vector recall for RAG. |
-| `text-embedding-3-large` | 88 | ¢¢ | Fast | Highest-quality recall for high-stakes RAG. |
-| `whisper-1` | 90 | ¢ | Fast | Speech-to-text in 50+ languages. |
-| `sora-1.0` | 85 | $$$$$ | Async | Short-form video generation. |
+## Model capability reference
 
 <Info>
-  Use the [Models endpoint](/api-reference/models) to query the live catalog. New revisions and pricing updates land there first.
+  Prices are not listed here because they change frequently. Always check the [live pricing page](https://api.getinfinityblue.com/pricing) for current per-token rates.
 </Info>
+
+### OpenAI (GPT) models
+
+| Model | Best for | Notes |
+| --- | --- | --- |
+| `gpt-5.4` | Default chat, vision, tool use | Flagship model; best overall quality across tasks |
+| `gpt-5.4-mini` | High-volume classification, routing, extraction | Fastest and most cost-efficient in the GPT line |
+| `gpt-5.5` | Cutting-edge quality requirements | Latest generation; highest capability ceiling |
+| `gpt-5.3-codex` | Code generation, debugging, refactoring | Optimised for programming tasks |
+
+### Google Gemini models
+
+| Model | Best for | Notes |
+| --- | --- | --- |
+| `gemini-3.1-pro-preview` | Long-context analysis, careful instruction following | Excellent for large document understanding |
+| `gemini-2.5-pro` | High-quality multimodal tasks | Strong vision and reasoning combination |
+| `gemini-2.5-flash` | Fast multimodal at lower cost | Good balance of speed and quality |
+| `gemini-3-flash-preview` | Lowest-latency Gemini tasks | Latest Flash generation; fast and affordable |
+
+### DeepSeek models
+
+| Model | Best for | Notes |
+| --- | --- | --- |
+| `deepseek-v4-pro` | Multi-step reasoning, planning, hard math | Advanced reasoning; good alternative to heavy frontier models |
+| `deepseek-v4-flash` | Cost-sensitive reasoning tasks | Lighter-weight DeepSeek; faster and cheaper than Pro |
+
+## Common model mappings
+
+If you are migrating from a standard OpenAI setup, use these equivalents:
+
+| OpenAI model | InfinityBlue equivalent |
+| --- | --- |
+| `gpt-4o` | `gpt-5.4` |
+| `gpt-4o-mini` | `gpt-5.4-mini` |
+| `o3` (reasoning) | `deepseek-v4-pro` |
+| `claude-sonnet-4-5` | `gemini-3.1-pro-preview` |
 
 ## Routing strategies
 
@@ -68,7 +91,7 @@ A single application often needs more than one model. Common patterns:
 
 - **Tiered routing.** Use a small, cheap model to classify the request, then escalate to a larger model only when the small model is not confident. Cuts cost without hurting quality on the hard cases.
 - **Cascading fallback.** Try the cheapest model first. If it returns a low confidence score, retry with the next model up. Useful for unpredictable traffic.
-- **Specialist per task.** Different models for different capabilities: `gpt-4o` for chat, `text-embedding-3-large` for retrieval, `sora-1.0` for video. The gateway dispatches each call to the right upstream.
+- **Specialist per task.** Different models for different capabilities: `gpt-5.4` for chat, `gemini-2.5-pro` for multimodal analysis, `deepseek-v4-pro` for reasoning-heavy tasks. The gateway dispatches each call to the right upstream.
 
 <Tip>
   Most teams that revisit model selection quarterly find 2-3x cost savings without sacrificing quality, simply by retiring older defaults that the team never updated.

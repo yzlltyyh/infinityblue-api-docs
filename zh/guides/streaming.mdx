@@ -5,28 +5,119 @@ description: "用 Server-Sent Events 实时接收模型输出"
 
 # 流式响应
 
-设置 `stream: true` 即可逐 token 接收模型输出，适合聊天 UI 实时显示。
-
-<Note>
-  完整指南（含代码示例、浏览器实现、reasoning 模型流式）请参考
-  [English version](/guides/streaming)。
-</Note>
+设置 `stream: true` 即可逐 token 接收模型输出，适合聊天 UI 实时显示、减少用户等待感知。
 
 ## 快速示例
 
 ```bash
-curl https://api.infinityblue.com/v1/chat/completions \
+curl https://api.getinfinityblue.com/v1/chat/completions \
   -H "Authorization: Bearer YOUR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "gpt-4o",
+    "model": "gpt-5.4",
     "stream": true,
     "messages": [{"role": "user", "content": "数到 10"}]
   }'
 ```
 
-返回 Server-Sent Events，每行 `data: {json}`，流以 `data: [DONE]` 结束。
+返回 Server-Sent Events，每行格式为 `data: {json}`，流以 `data: [DONE]` 结束。
 
-## 浏览器
+每个事件的 JSON 结构如下：
 
-`EventSource` 不支持自定义 header，需用 `fetch` + `ReadableStream`（详见英文版）。
+```json
+{
+  "id": "chatcmpl-9f3a8b2e1c0d",
+  "object": "chat.completion.chunk",
+  "created": 1717430000,
+  "model": "gpt-5.4",
+  "choices": [
+    {
+      "index": 0,
+      "delta": {
+        "content": "1"
+      },
+      "finish_reason": null
+    }
+  ]
+}
+```
+
+最后一个事件的 `finish_reason` 会变为 `"stop"`（或 `"length"`），之后紧跟 `data: [DONE]`。
+
+## Python 示例
+
+```python
+from openai import OpenAI
+
+client = OpenAI(
+    api_key="YOUR_API_KEY",
+    base_url="https://api.getinfinityblue.com/v1",
+)
+
+with client.chat.completions.stream(
+    model="gpt-5.4",
+    messages=[{"role": "user", "content": "数到 10"}],
+) as stream:
+    for text in stream.text_stream:
+        print(text, end="", flush=True)
+```
+
+## JavaScript / Node 示例
+
+```javascript
+import OpenAI from "openai";
+
+const client = new OpenAI({
+  apiKey: "YOUR_API_KEY",
+  baseURL: "https://api.getinfinityblue.com/v1",
+});
+
+const stream = client.chat.completions.stream({
+  model: "gpt-5.4",
+  messages: [{ role: "user", content: "数到 10" }],
+});
+
+for await (const chunk of stream) {
+  const content = chunk.choices[0]?.delta?.content ?? "";
+  process.stdout.write(content);
+}
+```
+
+## 浏览器端
+
+`EventSource` 不支持自定义请求头，需改用 `fetch` + `ReadableStream`：
+
+```javascript
+const response = await fetch("https://api.getinfinityblue.com/v1/chat/completions", {
+  method: "POST",
+  headers: {
+    "Authorization": "Bearer YOUR_API_KEY",
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    model: "gpt-5.4",
+    stream: true,
+    messages: [{ role: "user", content: "数到 10" }],
+  }),
+});
+
+const reader = response.body.getReader();
+const decoder = new TextDecoder();
+
+while (true) {
+  const { done, value } = await reader.read();
+  if (done) break;
+  const lines = decoder.decode(value).split("\n");
+  for (const line of lines) {
+    if (line.startsWith("data: ") && line !== "data: [DONE]") {
+      const chunk = JSON.parse(line.slice(6));
+      const content = chunk.choices[0]?.delta?.content ?? "";
+      process.stdout.write(content); // 或更新 DOM
+    }
+  }
+}
+```
+
+<Tip>
+  流式模式下 `usage` 字段默认不出现在中间 chunk 中。如果需要 token 统计，请在最后一个 chunk 或单独的非流式请求中获取。
+</Tip>

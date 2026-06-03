@@ -1,0 +1,1630 @@
+openapi: 3.1.0
+info:
+  title: InfinityBlue API — 聊天（Chat）
+  version: "1.0.0"
+  summary: 统一的 AI 模型 API 网关 — 聊天接口
+  description: |
+    InfinityBlue 是一个统一的 AI 模型 API 网关，以 **OpenAI、Google Gemini、
+    Anthropic Claude 等原生格式** 对外提供兼容接口，背后聚合了 OpenAI、
+    Google、DeepSeek、字节豆包（Seedance）、快手可灵（Kling）等厂商的模型。
+
+    你无需为每家厂商单独接入——只要把 base URL 指向 InfinityBlue，
+    沿用你熟悉的官方 SDK 即可调用全部模型。
+
+    ## 认证
+
+    所有请求都需要在请求头中携带 API Key：
+
+    ```
+    Authorization: Bearer YOUR_API_KEY
+    ```
+
+    在 [控制台](https://getinfinityblue.com) 创建和管理你的 API Key。
+
+    ## 接口格式约定
+
+    | 路径前缀 | 兼容格式 |
+    | --- | --- |
+    | `/v1/*` | OpenAI（Chat Completions、Responses、Images 等） |
+    | `/v1/messages` | Anthropic Claude Messages |
+    | `/v1beta/models/*` | Google Gemini 原生 |
+
+    ## 模型选择
+
+    在 `model` 参数中传入任意模型 ID 即可。完整可用列表见
+    [`GET /v1/models`](/zh/api-reference/models/list-models)
+    或 [模型价格页](https://api.getinfinityblue.com/pricing)。
+  contact:
+    name: InfinityBlue
+    url: https://getinfinityblue.com
+
+servers:
+  - url: https://api.getinfinityblue.com
+    description: 生产环境
+
+security:
+  - bearerAuth: []
+
+tags:
+  - name: 聊天（Chat）
+    description: |
+      文本对话、视觉理解、工具调用、流式输出与推理模型，
+      通过统一的对话接口提供。
+
+paths:
+  /v1/chat/completions:
+    post:
+      tags:
+        - 聊天（Chat）
+      summary: 创建对话补全
+      operationId: createChatCompletion
+      description: |
+        根据对话历史创建模型响应，支持流式与非流式两种返回方式。
+        完全兼容 OpenAI Chat Completions API——把官方 SDK 的 base URL
+        指向 InfinityBlue 即可直接使用。
+      x-mint:
+        metadata:
+          title: 创建对话补全
+          sidebarTitle: ChatCompletions 格式
+          description: 以 OpenAI 兼容格式生成文本、视觉、工具调用与流式响应
+        content: |
+          ## 可填写的模型
+
+          在 `model` 中传入任意对话类模型 ID，例如：
+
+          | 模型 ID | 说明 |
+          | --- | --- |
+          | `gpt-5.4` | GPT-5 系列旗舰，顶级推理 / 编码 / Agentic，1M 上下文 |
+          | `gpt-5.4-mini` | 轻量均衡版，适合高频调用与兜底 |
+          | `gemini-3.1-pro-preview` | Gemini 旗舰，强多模态，1M 上下文 |
+          | `deepseek-v4-pro` | DeepSeek 高性价比推理模型 |
+
+          完整列表见 [`GET /v1/models`](/zh/api-reference/models/list-models)
+          或 [模型价格页](https://api.getinfinityblue.com/pricing)。
+
+          ## 流式输出
+
+          设置 `stream: true` 即可接收 Server-Sent Events（SSE）。
+          每行格式为 `data: {json}`，流以 `data: [DONE]` 结束：
+
+          ```
+          data: {"id":"chatcmpl-...","choices":[{"delta":{"content":"你"}}]}
+          data: {"id":"chatcmpl-...","choices":[{"delta":{"content":"好"}}]}
+          data: [DONE]
+          ```
+
+          ## 推理模型
+
+          对支持推理的模型，可用 `reasoning_effort`（`low` / `medium` /
+          `high`）控制推理深度。模型会在响应消息的 `reasoning_content`
+          字段返回推理过程，建议在 UI 中默认折叠展示。
+
+          ## 工具调用
+
+          在 `tools` 中以 JSON Schema 定义函数，模型会返回结构化的
+          `tool_calls`，由你的程序执行后把结果回填到下一轮请求中。
+          用 `tool_choice` 控制调用策略（`auto` / `none` / `required`
+          或指定具体函数）。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChatCompletionRequest"
+            examples:
+              simple:
+                summary: 基础文本对话
+                value:
+                  model: gpt-5.4
+                  messages:
+                    - role: user
+                      content: 用一句话介绍你自己。
+              streaming:
+                summary: 流式输出
+                value:
+                  model: gpt-5.4
+                  stream: true
+                  messages:
+                    - role: user
+                      content: 写一首关于编程的五言绝句。
+              vision:
+                summary: 视觉理解（多模态输入）
+                value:
+                  model: gpt-5.4
+                  messages:
+                    - role: user
+                      content:
+                        - type: text
+                          text: 这张图片里有什么？
+                        - type: image_url
+                          image_url:
+                            url: https://example.com/cat.jpg
+              tool_calling:
+                summary: 工具调用（函数调用）
+                value:
+                  model: gpt-5.4
+                  messages:
+                    - role: user
+                      content: 北京现在天气怎么样？
+                  tools:
+                    - type: function
+                      function:
+                        name: get_weather
+                        description: 查询指定城市的当前天气
+                        parameters:
+                          type: object
+                          properties:
+                            city:
+                              type: string
+                              description: 城市名称
+                          required:
+                            - city
+                  tool_choice: auto
+              json_schema:
+                summary: 结构化输出（JSON Schema）
+                value:
+                  model: gpt-5.4
+                  messages:
+                    - role: system
+                      content: 从用户消息中抽取城市和国家。
+                    - role: user
+                      content: 我刚搬到了法国巴黎。
+                  response_format:
+                    type: json_schema
+                    json_schema:
+                      name: location
+                      schema:
+                        type: object
+                        properties:
+                          city:
+                            type: string
+                          country:
+                            type: string
+                        required:
+                          - city
+                          - country
+                        additionalProperties: false
+              reasoning:
+                summary: 推理模型
+                value:
+                  model: deepseek-v4-pro
+                  reasoning_effort: high
+                  messages:
+                    - role: user
+                      content: 一个农夫要带狼、羊、菜过河，船每次只能带一样，怎么过？
+      responses:
+        "200":
+          description: 成功创建响应
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatCompletionResponse"
+            text/event-stream:
+              schema:
+                type: string
+                description: |
+                  当 `stream=true` 时返回 Server-Sent Events 流。每行格式为
+                  `data: {json}`，最终以 `data: [DONE]` 结束。
+        "400":
+          description: 请求参数错误
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: API Key 无效或缺失
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: 请求频率超限
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: 服务器内部错误
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /v1/responses:
+    post:
+      tags:
+        - 聊天（Chat）
+      summary: 创建模型响应（Responses 格式）
+      operationId: createResponse
+      description: |
+        使用 OpenAI Responses API 格式创建模型响应。
+        支持多轮对话、工具调用、推理等功能。
+        与 Chat Completions 相比，Responses API 提供了以 `previous_response_id`
+        串联多轮的无状态续接机制，更适合 Agentic 场景。
+      x-mint:
+        metadata:
+          title: 创建模型响应（Responses 格式）
+          sidebarTitle: Responses 格式
+          description: 以 OpenAI Responses API 格式创建模型响应，支持多轮对话与工具调用
+        content: |
+          ## 可填写的模型
+
+          | 模型 ID | 说明 |
+          | --- | --- |
+          | `gpt-5.4` | GPT-5 系列旗舰，顶级推理 / 编码 / Agentic，1M 上下文 |
+          | `gpt-5.4-mini` | 轻量均衡版，适合高频调用与兜底 |
+          | `deepseek-v4-pro` | DeepSeek 高性价比推理模型 |
+
+          完整列表见 [`GET /v1/models`](/zh/api-reference/models/list-models)。
+
+          ## 多轮对话续接
+
+          通过 `previous_response_id` 字段传入上一轮响应的 `id`，
+          即可在无需重复发送完整上下文的情况下延续对话。
+
+          ## 推理控制
+
+          对支持推理的模型，通过 `reasoning.effort`（`low` / `medium` / `high`）
+          控制推理深度；通过 `reasoning.summary`（`auto` / `concise` / `detailed`）
+          控制推理摘要的详细程度。
+
+          ## 上下文截断
+
+          `truncation` 设置为 `auto` 时，系统自动截断超出上下文窗口的旧内容；
+          设置为 `disabled` 时，若请求超出窗口将返回错误。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ResponsesRequest"
+            examples:
+              simple:
+                summary: 基础文本对话
+                value:
+                  model: gpt-5.4
+                  input: 用一句话介绍你自己。
+              multi_turn:
+                summary: 多轮对话续接
+                value:
+                  model: gpt-5.4
+                  input: 继续解释上面提到的第二点。
+                  previous_response_id: resp_abc123
+              with_instructions:
+                summary: 携带系统指令
+                value:
+                  model: gpt-5.4-mini
+                  instructions: 你是一个专业的代码审查助手，回答请使用中文。
+                  input: 帮我审查这段 Python 代码是否有内存泄漏风险。
+              reasoning:
+                summary: 推理模型
+                value:
+                  model: deepseek-v4-pro
+                  input: 证明：无穷多个素数存在。
+                  reasoning:
+                    effort: high
+                    summary: detailed
+      responses:
+        "200":
+          description: 成功创建响应
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponsesResponse"
+        "400":
+          description: 请求参数错误
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: API Key 无效或缺失
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: 请求频率超限
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: 服务器内部错误
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  "/v1beta/models/{model}:generateContent":
+    post:
+      tags:
+        - 聊天（Chat）
+      summary: Gemini 生成内容（文本 / 媒体识别）
+      operationId: geminiGenerateContent
+      description: |
+        代理原生 Gemini `generateContent` 请求，支持文本对话与多媒体识别（图片、PDF、音频、视频）。
+
+        路径格式：`/v1beta/models/{model_name}:generateContent`
+
+        流式变体：`/v1beta/models/{model_name}:streamGenerateContent?alt=sse`
+
+        ⚠️ 媒体内容仅支持通过 `inlineData` 以 base64 方式上传，
+        不支持 `fileData.fileUri` 或 Google File API。
+      parameters:
+        - name: model
+          in: path
+          description: 模型名称，例如 `gemini-2.5-pro`、`gemini-2.5-flash`。
+          required: true
+          schema:
+            type: string
+            examples:
+              - gemini-2.5-pro
+      x-mint:
+        metadata:
+          title: Gemini 生成内容
+          sidebarTitle: Gemini 原生格式
+          description: 以 Gemini 原生格式进行文本对话与图片 / PDF / 音频 / 视频识别
+        content: |
+          ## 可填写的模型
+
+          | 模型 ID | 说明 |
+          | --- | --- |
+          | `gemini-3.1-pro-preview` | Gemini 旗舰，强多模态，超长上下文 |
+          | `gemini-2.5-pro` | 高性能多模态，支持百万 token 上下文 |
+          | `gemini-2.5-flash` | 快速轻量版，适合高频调用 |
+
+          完整列表见 [`GET /v1/models`](/zh/api-reference/models/list-models)。
+
+          ## 多轮对话
+
+          在 `contents` 数组中交替填写 `role: user` 和 `role: model`
+          的消息即可构成多轮对话。
+
+          ## 媒体识别
+
+          在 `parts` 中加入 `inlineData` 字段，提供 `mimeType`（如
+          `image/jpeg`、`application/pdf`、`audio/mpeg`、`video/mp4`）
+          和 base64 编码的文件数据。
+
+          ## 流式输出
+
+          将路径中的 `:generateContent` 改为 `:streamGenerateContent?alt=sse`
+          即可切换为 Server-Sent Events 流式模式。
+
+          ## 安全过滤
+
+          通过 `safetySettings` 数组调整各危害类别的过滤阈值。
+
+          ## 系统指令
+
+          通过 `systemInstruction` 字段传入系统级提示，格式与 `contents`
+          中的 `parts` 相同。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GeminiGenerateContentRequest"
+            examples:
+              text_chat:
+                summary: 文本聊天
+                value:
+                  contents:
+                    - role: user
+                      parts:
+                        - text: 你好，请用一句话介绍 Gemini。
+              multi_turn:
+                summary: 多轮对话
+                value:
+                  contents:
+                    - role: user
+                      parts:
+                        - text: 你好
+                    - role: model
+                      parts:
+                        - text: 你好！有什么我可以帮你的吗？
+                    - role: user
+                      parts:
+                        - text: 我家里有两条狗，它们总共有多少只爪子？
+              image_recognition:
+                summary: 图片识别
+                value:
+                  contents:
+                    - role: user
+                      parts:
+                        - text: 请描述这张图片中的乐器。
+                        - inlineData:
+                            mimeType: image/jpeg
+                            data: "<base64 编码的图片数据>"
+              pdf_recognition:
+                summary: PDF 识别
+                value:
+                  contents:
+                    - role: user
+                      parts:
+                        - text: 请为这首诗续写几行。
+                        - inlineData:
+                            mimeType: application/pdf
+                            data: "<base64 编码的 PDF 数据>"
+              audio_recognition:
+                summary: 音频识别
+                value:
+                  contents:
+                    - role: user
+                      parts:
+                        - text: 请描述这段音频文件的内容。
+                        - inlineData:
+                            mimeType: audio/mpeg
+                            data: "<base64 编码的音频数据>"
+              video_recognition:
+                summary: 视频识别
+                value:
+                  contents:
+                    - role: user
+                      parts:
+                        - text: 请转录视频中的语音，并提供视觉描述。
+                        - inlineData:
+                            mimeType: video/mp4
+                            data: "<base64 编码的视频数据>"
+      responses:
+        "200":
+          description: 成功生成内容
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GeminiGenerateContentResponse"
+        "400":
+          description: 请求参数错误
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: API Key 无效或缺失
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: 请求频率超限
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: 服务器内部错误
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /v1/messages:
+    post:
+      tags:
+        - 聊天（Chat）
+      summary: 创建 Claude 消息
+      operationId: createClaudeMessage
+      description: |
+        使用 Anthropic Claude Messages API 原生格式创建消息响应。
+        需要在请求头中携带 `anthropic-version`。
+        同时支持通过 `Authorization: Bearer` 或 `x-api-key` 传递凭证。
+      parameters:
+        - name: anthropic-version
+          in: header
+          description: Anthropic API 版本号，当前推荐值为 `2023-06-01`。
+          required: true
+          schema:
+            type: string
+            examples:
+              - "2023-06-01"
+        - name: x-api-key
+          in: header
+          description: |
+            Anthropic API Key（可选）。也可使用标准的
+            `Authorization: Bearer YOUR_KEY` 头，二者任选其一。
+          required: false
+          schema:
+            type: string
+      x-mint:
+        metadata:
+          title: 创建 Claude 消息
+          sidebarTitle: Claude Messages 格式
+          description: 以 Anthropic Claude Messages 原生格式创建消息响应，支持工具调用与扩展思考
+        content: |
+          ## 可填写的模型
+
+          | 模型 ID | 说明 |
+          | --- | --- |
+          | `claude-3-opus-20240229` | Claude 3 旗舰，顶级推理与理解能力 |
+          | `claude-3-5-sonnet-20241022` | Claude 3.5 Sonnet，均衡性能 |
+          | `claude-3-5-haiku-20241022` | Claude 3.5 Haiku，快速轻量 |
+
+          完整列表见 [`GET /v1/models`](/zh/api-reference/models/list-models)。
+
+          ## 版本头
+
+          每次请求必须携带 `anthropic-version: 2023-06-01`（或更新版本）。
+
+          ## 系统提示
+
+          `system` 字段可以是纯文本字符串，也可以是包含缓存控制块的对象数组，
+          用于精细控制提示缓存行为。
+
+          ## 工具调用
+
+          在 `tools` 中定义函数，使用 JSON Schema 描述 `input_schema`。
+          模型会在 `content` 中返回 `tool_use` 类型的块；
+          将工具执行结果以 `tool_result` 类型回填到下一轮请求中。
+
+          ## 扩展思考（Extended Thinking）
+
+          设置 `thinking.type: enabled` 并指定 `thinking.budget_tokens`
+          可启用扩展思考模式，模型会在响应中返回 `thinking` 类型的内容块。
+
+          ## 流式输出
+
+          设置 `stream: true` 后，响应以 Server-Sent Events 形式返回，
+          事件类型包括 `message_start`、`content_block_delta`、`message_stop` 等。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ClaudeMessageRequest"
+            examples:
+              simple:
+                summary: 基础文本对话
+                value:
+                  model: claude-3-opus-20240229
+                  max_tokens: 1024
+                  messages:
+                    - role: user
+                      content: 用一句话介绍你自己。
+              with_system:
+                summary: 携带系统提示
+                value:
+                  model: claude-3-opus-20240229
+                  max_tokens: 2048
+                  system: 你是一个专业的技术文档写作助手，回答请使用中文。
+                  messages:
+                    - role: user
+                      content: 帮我写一段关于 REST API 设计原则的简介。
+              tool_calling:
+                summary: 工具调用
+                value:
+                  model: claude-3-opus-20240229
+                  max_tokens: 1024
+                  tools:
+                    - name: get_weather
+                      description: 查询指定城市的当前天气
+                      input_schema:
+                        type: object
+                        properties:
+                          city:
+                            type: string
+                            description: 城市名称
+                        required:
+                          - city
+                  messages:
+                    - role: user
+                      content: 北京现在天气怎么样？
+              extended_thinking:
+                summary: 扩展思考模式
+                value:
+                  model: claude-3-opus-20240229
+                  max_tokens: 16000
+                  thinking:
+                    type: enabled
+                    budget_tokens: 10000
+                  messages:
+                    - role: user
+                      content: 分析量子计算对现代密码学的潜在影响。
+              streaming:
+                summary: 流式输出
+                value:
+                  model: claude-3-opus-20240229
+                  max_tokens: 1024
+                  stream: true
+                  messages:
+                    - role: user
+                      content: 写一首关于深海的短诗。
+      responses:
+        "200":
+          description: 成功创建消息
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClaudeMessageResponse"
+            text/event-stream:
+              schema:
+                type: string
+                description: |
+                  当 `stream=true` 时返回 Server-Sent Events 流。
+                  事件类型包括 `message_start`、`content_block_start`、
+                  `content_block_delta`、`content_block_stop`、`message_delta`、
+                  `message_stop`。
+        "400":
+          description: 请求参数错误
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: API Key 无效或缺失
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: 请求频率超限
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: 服务器内部错误
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: API Key
+      description: |
+        使用 Bearer Token 认证，格式：`Authorization: Bearer sk-xxxxxx`。
+        在 [控制台](https://getinfinityblue.com) 获取 API Key。
+
+  schemas:
+    # ── ChatCompletions ────────────────────────────────────────────────────────
+    ChatCompletionRequest:
+      type: object
+      required:
+        - model
+        - messages
+      properties:
+        model:
+          type: string
+          description: 模型 ID，例如 `gpt-5.4`。完整列表见 `GET /v1/models`。
+          examples:
+            - gpt-5.4
+        messages:
+          type: array
+          description: 到目前为止构成对话的消息列表，按时间顺序排列。
+          items:
+            $ref: "#/components/schemas/Message"
+        temperature:
+          type: number
+          minimum: 0
+          maximum: 2
+          default: 1
+          description: |
+            采样温度，取值 0–2。较高的值（如 0.8）会让输出更随机，
+            较低的值（如 0.2）会让输出更聚焦、更确定。建议与 `top_p`
+            二选一调整。
+        top_p:
+          type: number
+          minimum: 0
+          maximum: 1
+          default: 1
+          description: |
+            核采样（nucleus sampling）。模型只考虑累积概率达到 `top_p`
+            的 token，例如 0.1 表示只考虑概率最高的前 10%。建议与
+            `temperature` 二选一调整。
+        n:
+          type: integer
+          minimum: 1
+          default: 1
+          description: 为每条输入消息生成的补全数量。
+        stream:
+          type: boolean
+          default: false
+          description: 是否以 Server-Sent Events 流式返回。
+        stream_options:
+          type: object
+          description: 流式输出的附加选项，仅在 `stream=true` 时生效。
+          properties:
+            include_usage:
+              type: boolean
+              description: 是否在流的最后一个分块中包含 `usage` 统计。
+        stop:
+          description: 最多 4 个停止序列。模型生成到其中任一序列时停止。
+          oneOf:
+            - type: string
+            - type: array
+              items:
+                type: string
+        max_tokens:
+          type: integer
+          description: |
+            本次补全可生成的最大 token 数（旧字段）。推理类模型请改用
+            `max_completion_tokens`。
+        max_completion_tokens:
+          type: integer
+          description: 本次补全可生成的最大 token 数（含推理 token）。
+        presence_penalty:
+          type: number
+          minimum: -2
+          maximum: 2
+          default: 0
+          description: |
+            存在惩罚，取值 -2.0–2.0。正值会根据新 token 是否已在文本中
+            出现来惩罚它们，从而提高模型谈论新话题的可能性。
+        frequency_penalty:
+          type: number
+          minimum: -2
+          maximum: 2
+          default: 0
+          description: |
+            频率惩罚，取值 -2.0–2.0。正值会根据 token 已出现的频率来
+            惩罚它们，降低逐字重复的可能性。
+        logit_bias:
+          type: object
+          additionalProperties:
+            type: number
+          description: 调整指定 token 出现概率的偏置表，键为 token ID，值为 -100–100。
+        user:
+          type: string
+          description: 代表终端用户的唯一标识，可用于滥用监测。
+        tools:
+          type: array
+          description: 模型可调用的工具列表，目前仅支持 `function` 类型。
+          items:
+            $ref: "#/components/schemas/Tool"
+        tool_choice:
+          description: |
+            控制模型是否及如何调用工具。`none` 表示不调用，`auto` 由模型
+            自行决定，`required` 强制至少调用一个；也可传对象指定具体函数。
+          oneOf:
+            - type: string
+              enum:
+                - none
+                - auto
+                - required
+            - type: object
+              properties:
+                type:
+                  type: string
+                function:
+                  type: object
+                  properties:
+                    name:
+                      type: string
+        response_format:
+          $ref: "#/components/schemas/ResponseFormat"
+        seed:
+          type: integer
+          description: 随机种子。传入相同的 `seed` 和参数时尽量返回一致的结果。
+        reasoning_effort:
+          type: string
+          enum:
+            - low
+            - medium
+            - high
+          description: 推理强度，仅对支持推理的模型生效。
+        modalities:
+          type: array
+          description: 期望模型返回的模态类型。
+          items:
+            type: string
+            enum:
+              - text
+              - audio
+        audio:
+          type: object
+          description: 音频输出参数，当 `modalities` 包含 `audio` 时使用。
+          properties:
+            voice:
+              type: string
+              description: 音色。
+            format:
+              type: string
+              description: 音频格式。
+
+    Message:
+      type: object
+      required:
+        - role
+        - content
+      properties:
+        role:
+          type: string
+          enum:
+            - system
+            - user
+            - assistant
+            - tool
+            - developer
+          description: 消息角色。
+        content:
+          description: 消息内容，可以是纯文本字符串，或多模态内容片段数组。
+          oneOf:
+            - type: string
+            - type: array
+              items:
+                $ref: "#/components/schemas/MessageContent"
+        name:
+          type: string
+          description: 发送者名称，用于区分同一角色下的多个参与者。
+        tool_calls:
+          type: array
+          description: assistant 消息发起的工具调用列表。
+          items:
+            $ref: "#/components/schemas/ToolCall"
+        tool_call_id:
+          type: string
+          description: 工具调用 ID，用于 `tool` 角色消息回填结果时关联。
+        reasoning_content:
+          type: string
+          description: 推理模型返回的推理过程内容。
+
+    MessageContent:
+      type: object
+      description: 多模态消息内容片段。
+      properties:
+        type:
+          type: string
+          enum:
+            - text
+            - image_url
+            - input_audio
+            - file
+            - video_url
+          description: 内容片段类型。
+        text:
+          type: string
+          description: 文本内容，`type=text` 时使用。
+        image_url:
+          type: object
+          description: 图片内容，`type=image_url` 时使用。
+          properties:
+            url:
+              type: string
+              description: 图片 URL 或 base64 data URI。
+            detail:
+              type: string
+              enum:
+                - low
+                - high
+                - auto
+              description: 图片解析精度。
+        input_audio:
+          type: object
+          description: 音频内容，`type=input_audio` 时使用。
+          properties:
+            data:
+              type: string
+              description: Base64 编码的音频数据。
+            format:
+              type: string
+              enum:
+                - wav
+                - mp3
+              description: 音频格式。
+        file:
+          type: object
+          description: 文件内容，`type=file` 时使用。
+          properties:
+            filename:
+              type: string
+            file_data:
+              type: string
+              description: Base64 编码的文件数据。
+            file_id:
+              type: string
+        video_url:
+          type: object
+          description: 视频内容，`type=video_url` 时使用。
+          properties:
+            url:
+              type: string
+
+    Tool:
+      type: object
+      description: 可供模型调用的工具定义。
+      properties:
+        type:
+          type: string
+          description: 工具类型，目前为 `function`。
+          examples:
+            - function
+        function:
+          type: object
+          properties:
+            name:
+              type: string
+              description: 函数名称。
+            description:
+              type: string
+              description: 函数功能描述，帮助模型判断何时调用。
+            parameters:
+              type: object
+              description: JSON Schema 格式的参数定义。
+
+    ToolCall:
+      type: object
+      description: 模型发起的一次工具调用。
+      properties:
+        id:
+          type: string
+          description: 工具调用 ID。
+        type:
+          type: string
+          examples:
+            - function
+        function:
+          type: object
+          properties:
+            name:
+              type: string
+              description: 被调用的函数名称。
+            arguments:
+              type: string
+              description: 模型生成的参数，为 JSON 字符串。
+
+    ResponseFormat:
+      type: object
+      description: 控制模型输出格式。
+      properties:
+        type:
+          type: string
+          enum:
+            - text
+            - json_object
+            - json_schema
+          description: 输出格式类型。
+        json_schema:
+          type: object
+          description: 当 `type=json_schema` 时提供的 JSON Schema 定义。
+
+    ChatCompletionResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          description: 本次补全的唯一标识。
+        object:
+          type: string
+          examples:
+            - chat.completion
+        created:
+          type: integer
+          description: 创建时间的 Unix 时间戳（秒）。
+        model:
+          type: string
+          description: 实际处理请求的模型。
+        choices:
+          type: array
+          description: 模型生成的补全列表。
+          items:
+            type: object
+            properties:
+              index:
+                type: integer
+              message:
+                $ref: "#/components/schemas/Message"
+              finish_reason:
+                type: string
+                enum:
+                  - stop
+                  - length
+                  - tool_calls
+                  - content_filter
+                description: 结束原因。
+        usage:
+          $ref: "#/components/schemas/Usage"
+        system_fingerprint:
+          type: string
+
+    Usage:
+      type: object
+      description: 本次请求的 token 用量统计。
+      properties:
+        prompt_tokens:
+          type: integer
+          description: 提示词消耗的 token 数。
+        completion_tokens:
+          type: integer
+          description: 补全消耗的 token 数。
+        total_tokens:
+          type: integer
+          description: 总消耗 token 数。
+        prompt_tokens_details:
+          type: object
+          properties:
+            cached_tokens:
+              type: integer
+              description: 命中缓存的 token 数。
+            text_tokens:
+              type: integer
+            audio_tokens:
+              type: integer
+            image_tokens:
+              type: integer
+        completion_tokens_details:
+          type: object
+          properties:
+            text_tokens:
+              type: integer
+            audio_tokens:
+              type: integer
+            reasoning_tokens:
+              type: integer
+              description: 推理消耗的 token 数。
+
+    ErrorResponse:
+      type: object
+      description: 标准错误响应。
+      properties:
+        error:
+          type: object
+          properties:
+            message:
+              type: string
+              description: 错误信息。
+              examples:
+                - Invalid duration. Supported range is 4 to 15 seconds.
+            type:
+              type: string
+              description: 错误类型。
+              examples:
+                - invalid_request_error
+            param:
+              type: [string, "null"]
+              description: 相关参数。
+              examples:
+                - seconds
+            code:
+              type: [string, "null"]
+              description: 错误代码。
+              examples:
+                - invalid_duration
+
+    # ── Responses API ──────────────────────────────────────────────────────────
+    ResponsesRequest:
+      type: object
+      required:
+        - model
+      description: OpenAI Responses API 请求体。
+      properties:
+        model:
+          type: string
+          description: 模型 ID，例如 `gpt-5.4`。完整列表见 `GET /v1/models`。
+          examples:
+            - gpt-5.4
+        input:
+          description: |
+            输入内容，可以是纯文本字符串，或包含多条消息的数组。
+            若省略，须通过 `previous_response_id` 续接上一轮对话。
+          oneOf:
+            - type: string
+            - type: array
+              description: 消息数组，格式与 Chat Completions 的 `messages` 相同。
+              items:
+                type: object
+                properties:
+                  role:
+                    type: string
+                    enum:
+                      - system
+                      - user
+                      - assistant
+                      - tool
+                    description: 消息角色。
+                  content:
+                    description: 消息内容，字符串或多模态内容数组。
+                    oneOf:
+                      - type: string
+                      - type: array
+                        items:
+                          type: object
+        instructions:
+          type: string
+          description: 系统级指令，等同于 Chat Completions 中的 `system` 消息。
+        max_output_tokens:
+          type: integer
+          description: 模型在本次响应中可生成的最大 token 数（含推理 token）。
+        temperature:
+          type: number
+          minimum: 0
+          maximum: 2
+          description: 采样温度，取值 0–2，控制输出的随机性。
+        top_p:
+          type: number
+          minimum: 0
+          maximum: 1
+          description: 核采样概率阈值，与 `temperature` 二选一调整。
+        stream:
+          type: boolean
+          default: false
+          description: 是否以 Server-Sent Events 流式返回。
+        tools:
+          type: array
+          description: 模型可调用的工具列表。
+          items:
+            type: object
+        tool_choice:
+          description: |
+            工具调用策略。字符串 `auto`/`none`/`required`，
+            或指定具体工具的对象。
+          oneOf:
+            - type: string
+              enum:
+                - auto
+                - none
+                - required
+            - type: object
+        reasoning:
+          type: object
+          description: 推理配置，仅对支持推理的模型生效。
+          properties:
+            effort:
+              type: string
+              enum:
+                - low
+                - medium
+                - high
+              description: 推理深度。
+            summary:
+              type: string
+              enum:
+                - auto
+                - concise
+                - detailed
+              description: 推理摘要详细程度。
+        previous_response_id:
+          type: string
+          description: |
+            上一轮响应的 `id`。填入后可在不重复发送历史上下文的情况下
+            延续多轮对话。
+        truncation:
+          type: string
+          enum:
+            - auto
+            - disabled
+          description: |
+            上下文截断策略。`auto` 自动截断超出窗口的旧内容；
+            `disabled` 超出时返回错误。
+
+    ResponsesResponse:
+      type: object
+      description: OpenAI Responses API 响应体。
+      properties:
+        id:
+          type: string
+          description: 本次响应的唯一标识，可用作下一轮的 `previous_response_id`。
+        object:
+          type: string
+          description: 对象类型，值为 `response`。
+          examples:
+            - response
+        created_at:
+          type: integer
+          description: 创建时间的 Unix 时间戳（秒）。
+        status:
+          type: string
+          enum:
+            - completed
+            - failed
+            - in_progress
+            - incomplete
+          description: 响应状态。
+        model:
+          type: string
+          description: 实际处理请求的模型。
+        output:
+          type: array
+          description: 模型生成的输出块列表。
+          items:
+            type: object
+            properties:
+              type:
+                type: string
+                description: 输出块类型，例如 `message`。
+              id:
+                type: string
+                description: 输出块 ID。
+              status:
+                type: string
+                description: 输出块状态。
+              role:
+                type: string
+                description: 角色，通常为 `assistant`。
+              content:
+                type: array
+                description: 内容片段列表。
+                items:
+                  type: object
+                  properties:
+                    type:
+                      type: string
+                      description: 内容类型，例如 `output_text`。
+                    text:
+                      type: string
+                      description: 文本内容。
+        usage:
+          $ref: "#/components/schemas/Usage"
+
+    # ── Gemini ─────────────────────────────────────────────────────────────────
+    GeminiGenerateContentRequest:
+      type: object
+      description: Gemini generateContent 请求体，同时适用于文本对话与媒体识别。
+      properties:
+        contents:
+          type: array
+          description: |
+            对话内容数组，按时间顺序排列。每个元素包含 `role`（`user` 或 `model`）
+            和 `parts`（内容片段列表）。
+          items:
+            type: object
+            properties:
+              role:
+                type: string
+                enum:
+                  - user
+                  - model
+                description: 消息角色。
+              parts:
+                type: array
+                description: 内容片段列表，可包含文本、图片、PDF、音频、视频等。
+                items:
+                  type: object
+                  properties:
+                    text:
+                      type: string
+                      description: 文本内容。
+                    inlineData:
+                      type: object
+                      description: Base64 编码的媒体数据，用于图片、PDF、音频、视频识别。
+                      properties:
+                        mimeType:
+                          type: string
+                          description: |
+                            媒体 MIME 类型，例如 `image/jpeg`、`image/png`、
+                            `application/pdf`、`audio/mpeg`、`video/mp4`。
+                          examples:
+                            - image/jpeg
+                        data:
+                          type: string
+                          description: Base64 编码的媒体文件数据。
+        generationConfig:
+          type: object
+          description: 生成参数配置。
+          properties:
+            temperature:
+              type: number
+              description: 采样温度，控制输出随机性。
+            topP:
+              type: number
+              description: 核采样概率阈值。
+            topK:
+              type: integer
+              description: Top-K 采样参数，模型每步只考虑概率最高的 K 个 token。
+            maxOutputTokens:
+              type: integer
+              description: 响应中可生成的最大 token 数。
+            stopSequences:
+              type: array
+              description: 停止序列列表，模型生成到其中任一序列时停止。
+              items:
+                type: string
+        safetySettings:
+          type: array
+          description: 安全过滤设置，可调整各危害类别的过滤阈值。
+          items:
+            type: object
+            properties:
+              category:
+                type: string
+                description: 危害类别，例如 `HARM_CATEGORY_HARASSMENT`。
+              threshold:
+                type: string
+                description: 过滤阈值，例如 `BLOCK_NONE`、`BLOCK_ONLY_HIGH`。
+        tools:
+          type: array
+          description: 工具列表，用于函数调用（Function Calling）。
+          items:
+            type: object
+        systemInstruction:
+          type: object
+          description: 系统级指令，格式与 `contents` 中的元素相同。
+          properties:
+            parts:
+              type: array
+              description: 系统指令内容片段列表。
+              items:
+                type: object
+                properties:
+                  text:
+                    type: string
+                    description: 系统指令文本。
+
+    GeminiGenerateContentResponse:
+      type: object
+      description: Gemini generateContent 响应体。
+      properties:
+        candidates:
+          type: array
+          description: 模型生成的候选响应列表。
+          items:
+            type: object
+            properties:
+              content:
+                type: object
+                description: 响应内容。
+                properties:
+                  role:
+                    type: string
+                    description: 角色，通常为 `model`。
+                  parts:
+                    type: array
+                    description: 内容片段列表。
+                    items:
+                      type: object
+                      properties:
+                        text:
+                          type: string
+                          description: 文本内容。
+              finishReason:
+                type: string
+                description: 生成结束原因，例如 `STOP`、`MAX_TOKENS`、`SAFETY`。
+              safetyRatings:
+                type: array
+                description: 各危害类别的安全评分。
+                items:
+                  type: object
+                  properties:
+                    category:
+                      type: string
+                      description: 危害类别。
+                    probability:
+                      type: string
+                      description: 该类别的危害概率，例如 `NEGLIGIBLE`、`LOW`、`MEDIUM`、`HIGH`。
+        usageMetadata:
+          type: object
+          description: Token 用量统计。
+          properties:
+            promptTokenCount:
+              type: integer
+              description: 提示词消耗的 token 数。
+            candidatesTokenCount:
+              type: integer
+              description: 所有候选响应消耗的 token 数。
+            totalTokenCount:
+              type: integer
+              description: 总消耗 token 数。
+
+    # ── Claude Messages ────────────────────────────────────────────────────────
+    ClaudeMessageRequest:
+      type: object
+      required:
+        - model
+        - messages
+        - max_tokens
+      description: Anthropic Claude Messages API 请求体。
+      properties:
+        model:
+          type: string
+          description: 模型 ID，例如 `claude-3-opus-20240229`。完整列表见 `GET /v1/models`。
+          examples:
+            - claude-3-opus-20240229
+        messages:
+          type: array
+          description: 对话消息列表，`role` 必须在 `user` 和 `assistant` 之间交替。
+          items:
+            $ref: "#/components/schemas/ClaudeMessage"
+        system:
+          description: |
+            系统提示，可以是纯文本字符串，也可以是包含缓存控制块的对象数组。
+          oneOf:
+            - type: string
+            - type: array
+              items:
+                type: object
+        max_tokens:
+          type: integer
+          minimum: 1
+          description: 模型在本次响应中可生成的最大 token 数，必须指定。
+        temperature:
+          type: number
+          minimum: 0
+          maximum: 1
+          description: 采样温度，取值 0–1，控制输出随机性。
+        top_p:
+          type: number
+          description: 核采样概率阈值，与 `temperature` 二选一调整。
+        top_k:
+          type: integer
+          description: Top-K 采样参数，仅考虑概率最高的 K 个 token。
+        stream:
+          type: boolean
+          description: 是否以 Server-Sent Events 流式返回。
+        stop_sequences:
+          type: array
+          description: 停止序列列表，模型生成到其中任一序列时停止。
+          items:
+            type: string
+        tools:
+          type: array
+          description: 模型可调用的工具列表，每个工具需提供 `name`、`description` 和 `input_schema`。
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+                description: 工具名称。
+              description:
+                type: string
+                description: 工具功能描述，帮助模型判断何时调用。
+              input_schema:
+                type: object
+                description: JSON Schema 格式的输入参数定义。
+        tool_choice:
+          description: |
+            工具调用策略。`auto` 由模型自行决定，`any` 强制至少调用一个工具，
+            `tool` 强制调用指定工具（需同时提供 `name`）。
+          oneOf:
+            - type: object
+              properties:
+                type:
+                  type: string
+                  enum:
+                    - auto
+                    - any
+                    - tool
+                  description: 策略类型。
+                name:
+                  type: string
+                  description: 当 `type=tool` 时，指定要调用的工具名称。
+        thinking:
+          type: object
+          description: 扩展思考（Extended Thinking）配置，仅对支持该功能的模型生效。
+          properties:
+            type:
+              type: string
+              enum:
+                - enabled
+                - disabled
+              description: 是否启用扩展思考。
+            budget_tokens:
+              type: integer
+              description: |
+                思考过程允许消耗的最大 token 预算。必须大于 0，
+                建议至少设置为 1000 以获得有效的思考输出。
+        metadata:
+          type: object
+          description: 请求附加元数据。
+          properties:
+            user_id:
+              type: string
+              description: 代表终端用户的唯一标识，可用于滥用监测。
+
+    ClaudeMessage:
+      type: object
+      required:
+        - role
+        - content
+      description: Claude 对话消息。
+      properties:
+        role:
+          type: string
+          enum:
+            - user
+            - assistant
+          description: 消息角色，必须在 `user` 和 `assistant` 之间交替。
+        content:
+          description: |
+            消息内容，可以是纯文本字符串，或包含多种类型内容块的数组
+            （文本、图片、工具调用、工具结果等）。
+          oneOf:
+            - type: string
+            - type: array
+              items:
+                type: object
+                properties:
+                  type:
+                    type: string
+                    enum:
+                      - text
+                      - image
+                      - tool_use
+                      - tool_result
+                    description: 内容块类型。
+                  text:
+                    type: string
+                    description: 文本内容，`type=text` 时使用。
+                  source:
+                    type: object
+                    description: 图片来源，`type=image` 时使用。
+                    properties:
+                      type:
+                        type: string
+                        enum:
+                          - base64
+                          - url
+                        description: 来源类型。
+                      media_type:
+                        type: string
+                        description: 图片 MIME 类型，例如 `image/jpeg`、`image/png`、`image/webp`、`image/gif`。
+                      data:
+                        type: string
+                        description: Base64 编码的图片数据，`type=base64` 时使用。
+                      url:
+                        type: string
+                        description: 图片 URL，`type=url` 时使用。
+                  id:
+                    type: string
+                    description: 工具调用 ID，`type=tool_use` 时使用。
+                  name:
+                    type: string
+                    description: 工具名称，`type=tool_use` 时使用。
+                  input:
+                    type: object
+                    description: 工具输入参数，`type=tool_use` 时使用。
+                  tool_use_id:
+                    type: string
+                    description: 关联的工具调用 ID，`type=tool_result` 时使用。
+                  content:
+                    type: string
+                    description: 工具执行结果，`type=tool_result` 时使用。
+
+    ClaudeMessageResponse:
+      type: object
+      description: Anthropic Claude Messages API 响应体。
+      properties:
+        id:
+          type: string
+          description: 本次消息的唯一标识。
+        type:
+          type: string
+          description: 对象类型，值为 `message`。
+          examples:
+            - message
+        role:
+          type: string
+          description: 响应角色，值为 `assistant`。
+          examples:
+            - assistant
+        content:
+          type: array
+          description: 响应内容块列表，可包含文本、工具调用或思考块。
+          items:
+            type: object
+            properties:
+              type:
+                type: string
+                description: 内容块类型，例如 `text`、`tool_use`、`thinking`。
+              text:
+                type: string
+                description: 文本内容，`type=text` 时存在。
+        model:
+          type: string
+          description: 实际处理请求的模型。
+        stop_reason:
+          type: string
+          enum:
+            - end_turn
+            - max_tokens
+            - stop_sequence
+            - tool_use
+          description: 生成结束原因。
+        usage:
+          type: object
+          description: Token 用量统计。
+          properties:
+            input_tokens:
+              type: integer
+              description: 输入消耗的 token 数。
+            output_tokens:
+              type: integer
+              description: 输出消耗的 token 数。
+            cache_creation_input_tokens:
+              type: integer
+              description: 写入缓存的 token 数（提示缓存功能）。
+            cache_read_input_tokens:
+              type: integer
+              description: 从缓存读取的 token 数（提示缓存功能）。

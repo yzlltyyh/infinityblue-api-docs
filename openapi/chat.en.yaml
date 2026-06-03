@@ -1,0 +1,1642 @@
+openapi: 3.1.0
+info:
+  title: InfinityBlue API — Chat
+  version: "1.0.0"
+  summary: Unified AI model API gateway — Chat endpoints
+  description: |
+    InfinityBlue is a unified API gateway for AI models. It exposes
+    **OpenAI-, Google Gemini-, and Anthropic Claude-compatible** endpoints,
+    backed by models from OpenAI, Google, DeepSeek, ByteDance (Seedance),
+    Kuaishou (Kling), and more.
+
+    You don't need to integrate each vendor separately — just point your
+    base URL at InfinityBlue and keep using the official SDK you already know.
+
+    ## Authentication
+
+    Every request must include your API key in the header:
+
+    ```
+    Authorization: Bearer YOUR_API_KEY
+    ```
+
+    Create and manage your API keys in the [console](https://getinfinityblue.com).
+
+    ## Endpoint format conventions
+
+    | Path prefix | Compatible format |
+    | --- | --- |
+    | `/v1/*` | OpenAI (Chat Completions, Responses, Images, etc.) |
+    | `/v1/messages` | Anthropic Claude Messages |
+    | `/v1beta/models/*` | Google Gemini native |
+
+    ## Model selection
+
+    Pass any model ID in the `model` parameter. See
+    [`GET /v1/models`](/api-reference/models/list-models)
+    or the [pricing page](https://api.getinfinityblue.com/pricing)
+    for the full list.
+  contact:
+    name: InfinityBlue
+    url: https://getinfinityblue.com
+
+servers:
+  - url: https://api.getinfinityblue.com
+    description: Production
+
+security:
+  - bearerAuth: []
+
+tags:
+  - name: Chat
+    description: |
+      Text conversations, vision, tool calling, streaming, and reasoning
+      models — all through a single chat endpoint.
+
+paths:
+  /v1/chat/completions:
+    post:
+      tags:
+        - Chat
+      summary: Create chat completion
+      operationId: createChatCompletion
+      description: |
+        Create a model response for the given conversation. Supports both
+        streaming and non-streaming responses. Fully compatible with the
+        OpenAI Chat Completions API — just point your SDK's base URL at
+        InfinityBlue.
+      x-mint:
+        metadata:
+          title: Create chat completion
+          sidebarTitle: ChatCompletions format
+          description: Generate text, vision, tool-calling, and streaming responses in OpenAI-compatible format
+        content: |
+          ## Models you can use
+
+          Pass any chat-capable model ID in `model`, for example:
+
+          | Model ID | Notes |
+          | --- | --- |
+          | `gpt-5.4` | GPT-5 flagship — top reasoning / coding / agentic, 1M context |
+          | `gpt-5.4-mini` | Lightweight, balanced — great for high-volume and fallback |
+          | `gemini-3.1-pro-preview` | Gemini flagship — strong multimodal, 1M context |
+          | `deepseek-v4-pro` | DeepSeek cost-effective reasoning model |
+
+          See [`GET /v1/models`](/api-reference/models/list-models) or the
+          [pricing page](https://api.getinfinityblue.com/pricing) for the full list.
+
+          ## Streaming
+
+          Set `stream: true` to receive Server-Sent Events (SSE). Each line is
+          `data: {json}` and the stream ends with `data: [DONE]`:
+
+          ```
+          data: {"id":"chatcmpl-...","choices":[{"delta":{"content":"He"}}]}
+          data: {"id":"chatcmpl-...","choices":[{"delta":{"content":"llo"}}]}
+          data: [DONE]
+          ```
+
+          ## Reasoning models
+
+          For reasoning-capable models, use `reasoning_effort` (`low` /
+          `medium` / `high`) to control reasoning depth. The model returns its
+          reasoning in the `reasoning_content` field — render it collapsed in
+          your UI.
+
+          ## Tool calling
+
+          Define functions as JSON Schema in `tools`. The model returns
+          structured `tool_calls` that your application executes and feeds back
+          in a follow-up request. Use `tool_choice` to control the strategy
+          (`auto` / `none` / `required`, or a specific function).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChatCompletionRequest"
+            examples:
+              simple:
+                summary: Basic text chat
+                value:
+                  model: gpt-5.4
+                  messages:
+                    - role: user
+                      content: Introduce yourself in one sentence.
+              streaming:
+                summary: Streaming response
+                value:
+                  model: gpt-5.4
+                  stream: true
+                  messages:
+                    - role: user
+                      content: Write a haiku about programming.
+              vision:
+                summary: Vision (multimodal input)
+                value:
+                  model: gpt-5.4
+                  messages:
+                    - role: user
+                      content:
+                        - type: text
+                          text: What's in this image?
+                        - type: image_url
+                          image_url:
+                            url: https://example.com/cat.jpg
+              tool_calling:
+                summary: Tool calling (function calling)
+                value:
+                  model: gpt-5.4
+                  messages:
+                    - role: user
+                      content: What's the weather in Beijing?
+                  tools:
+                    - type: function
+                      function:
+                        name: get_weather
+                        description: Get the current weather for a city
+                        parameters:
+                          type: object
+                          properties:
+                            city:
+                              type: string
+                              description: City name
+                          required:
+                            - city
+                  tool_choice: auto
+              json_schema:
+                summary: Structured output (JSON Schema)
+                value:
+                  model: gpt-5.4
+                  messages:
+                    - role: system
+                      content: Extract the city and country from the user's message.
+                    - role: user
+                      content: I just moved to Paris, France.
+                  response_format:
+                    type: json_schema
+                    json_schema:
+                      name: location
+                      schema:
+                        type: object
+                        properties:
+                          city:
+                            type: string
+                          country:
+                            type: string
+                        required:
+                          - city
+                          - country
+                        additionalProperties: false
+              reasoning:
+                summary: Reasoning model
+                value:
+                  model: deepseek-v4-pro
+                  reasoning_effort: high
+                  messages:
+                    - role: user
+                      content: A farmer must ferry a wolf, a goat, and a cabbage across a river. The boat holds only one at a time. How?
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatCompletionResponse"
+            text/event-stream:
+              schema:
+                type: string
+                description: |
+                  Server-Sent Events stream when `stream=true`. Each line is
+                  `data: {json}`; the stream ends with `data: [DONE]`.
+        "400":
+          description: Invalid request parameters
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Invalid or missing API key
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /v1/responses:
+    post:
+      tags:
+        - Chat
+      summary: Create model response (Responses format)
+      operationId: createResponse
+      description: |
+        Create a model response using the OpenAI Responses API format.
+        Supports multi-turn conversations, tool calling, and reasoning.
+        Compared to Chat Completions, the Responses API provides a stateless
+        continuation mechanism via `previous_response_id`, making it well-suited
+        for agentic workflows.
+      x-mint:
+        metadata:
+          title: Create model response (Responses format)
+          sidebarTitle: Responses format
+          description: Create a model response in OpenAI Responses API format with multi-turn and tool-calling support
+        content: |
+          ## Models you can use
+
+          | Model ID | Notes |
+          | --- | --- |
+          | `gpt-5.4` | GPT-5 flagship — top reasoning / coding / agentic, 1M context |
+          | `gpt-5.4-mini` | Lightweight, balanced — great for high-volume and fallback |
+          | `deepseek-v4-pro` | DeepSeek cost-effective reasoning model |
+
+          See [`GET /v1/models`](/api-reference/models/list-models) for the full list.
+
+          ## Multi-turn continuation
+
+          Pass the `id` from a previous response as `previous_response_id` to
+          continue the conversation without resending the full history.
+
+          ## Reasoning control
+
+          For reasoning-capable models, use `reasoning.effort` (`low` / `medium` /
+          `high`) to set reasoning depth, and `reasoning.summary` (`auto` /
+          `concise` / `detailed`) to control how much reasoning detail is returned.
+
+          ## Context truncation
+
+          Set `truncation` to `auto` to let the system automatically drop older
+          context when the window is exceeded. Set to `disabled` to return an
+          error instead.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ResponsesRequest"
+            examples:
+              simple:
+                summary: Basic text chat
+                value:
+                  model: gpt-5.4
+                  input: Introduce yourself in one sentence.
+              multi_turn:
+                summary: Multi-turn continuation
+                value:
+                  model: gpt-5.4
+                  input: Can you expand on the second point you mentioned?
+                  previous_response_id: resp_abc123
+              with_instructions:
+                summary: With system instructions
+                value:
+                  model: gpt-5.4-mini
+                  instructions: You are a professional code reviewer. Always respond in English.
+                  input: Review this Python snippet for potential memory leaks.
+              reasoning:
+                summary: Reasoning model
+                value:
+                  model: deepseek-v4-pro
+                  input: Prove that there are infinitely many prime numbers.
+                  reasoning:
+                    effort: high
+                    summary: detailed
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponsesResponse"
+        "400":
+          description: Invalid request parameters
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Invalid or missing API key
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  "/v1beta/models/{model}:generateContent":
+    post:
+      tags:
+        - Chat
+      summary: Gemini generate content (text / media recognition)
+      operationId: geminiGenerateContent
+      description: |
+        Proxy native Gemini `generateContent` requests, supporting text chat
+        and multimodal recognition (images, PDFs, audio, video).
+
+        Path format: `/v1beta/models/{model_name}:generateContent`
+
+        Streaming variant: `/v1beta/models/{model_name}:streamGenerateContent?alt=sse`
+
+        ⚠️ Media content must be uploaded via `inlineData` as base64-encoded data.
+        `fileData.fileUri` and the Google File API are not supported.
+      parameters:
+        - name: model
+          in: path
+          description: Model name, e.g. `gemini-2.5-pro` or `gemini-2.5-flash`.
+          required: true
+          schema:
+            type: string
+            examples:
+              - gemini-2.5-pro
+      x-mint:
+        metadata:
+          title: Gemini generate content
+          sidebarTitle: Gemini native format
+          description: Text chat and image / PDF / audio / video recognition using the Gemini native API format
+        content: |
+          ## Models you can use
+
+          | Model ID | Notes |
+          | --- | --- |
+          | `gemini-3.1-pro-preview` | Gemini flagship — strong multimodal, very long context |
+          | `gemini-2.5-pro` | High-performance multimodal, up to 1M token context |
+          | `gemini-2.5-flash` | Fast, lightweight — optimized for high-volume workloads |
+
+          See [`GET /v1/models`](/api-reference/models/list-models) for the full list.
+
+          ## Multi-turn conversations
+
+          Alternate `role: user` and `role: model` entries in the `contents` array
+          to build a multi-turn conversation.
+
+          ## Media recognition
+
+          Add an `inlineData` entry in `parts` with a `mimeType` (e.g.
+          `image/jpeg`, `application/pdf`, `audio/mpeg`, `video/mp4`) and the
+          base64-encoded file data.
+
+          ## Streaming
+
+          Replace `:generateContent` in the path with
+          `:streamGenerateContent?alt=sse` to switch to SSE streaming mode.
+
+          ## Safety filtering
+
+          Use `safetySettings` to adjust the blocking threshold for each harm
+          category.
+
+          ## System instructions
+
+          Pass a system-level prompt via `systemInstruction`, using the same
+          `parts` format as `contents`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GeminiGenerateContentRequest"
+            examples:
+              text_chat:
+                summary: Text chat
+                value:
+                  contents:
+                    - role: user
+                      parts:
+                        - text: "Hi, introduce Gemini in one sentence."
+              multi_turn:
+                summary: Multi-turn conversation
+                value:
+                  contents:
+                    - role: user
+                      parts:
+                        - text: Hello
+                    - role: model
+                      parts:
+                        - text: Great to meet you. What would you like to know?
+                    - role: user
+                      parts:
+                        - text: I have two dogs in my house. How many paws are in my house?
+              image_recognition:
+                summary: Image recognition
+                value:
+                  contents:
+                    - role: user
+                      parts:
+                        - text: Tell me about the instrument in this image.
+                        - inlineData:
+                            mimeType: image/jpeg
+                            data: "<base64-encoded image data>"
+              pdf_recognition:
+                summary: PDF recognition
+                value:
+                  contents:
+                    - role: user
+                      parts:
+                        - text: Can you add a few more lines to this poem?
+                        - inlineData:
+                            mimeType: application/pdf
+                            data: "<base64-encoded PDF data>"
+              audio_recognition:
+                summary: Audio recognition
+                value:
+                  contents:
+                    - role: user
+                      parts:
+                        - text: Please describe this audio file.
+                        - inlineData:
+                            mimeType: audio/mpeg
+                            data: "<base64-encoded audio data>"
+              video_recognition:
+                summary: Video recognition
+                value:
+                  contents:
+                    - role: user
+                      parts:
+                        - text: Transcribe the audio from this video and provide visual descriptions.
+                        - inlineData:
+                            mimeType: video/mp4
+                            data: "<base64-encoded video data>"
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GeminiGenerateContentResponse"
+        "400":
+          description: Invalid request parameters
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Invalid or missing API key
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /v1/messages:
+    post:
+      tags:
+        - Chat
+      summary: Create Claude message
+      operationId: createClaudeMessage
+      description: |
+        Create a message response using the Anthropic Claude Messages API native
+        format. Requires the `anthropic-version` header. Accepts either
+        `Authorization: Bearer` or `x-api-key` for authentication.
+      parameters:
+        - name: anthropic-version
+          in: header
+          description: Anthropic API version. Recommended value is `2023-06-01`.
+          required: true
+          schema:
+            type: string
+            examples:
+              - "2023-06-01"
+        - name: x-api-key
+          in: header
+          description: |
+            Anthropic API key (optional). You can use this header or the standard
+            `Authorization: Bearer YOUR_KEY` header — either works.
+          required: false
+          schema:
+            type: string
+      x-mint:
+        metadata:
+          title: Create Claude message
+          sidebarTitle: Claude Messages format
+          description: Create message responses using the Anthropic Claude Messages native API format, with tool calling and extended thinking support
+        content: |
+          ## Models you can use
+
+          | Model ID | Notes |
+          | --- | --- |
+          | `claude-3-opus-20240229` | Claude 3 flagship — top reasoning and comprehension |
+          | `claude-3-5-sonnet-20241022` | Claude 3.5 Sonnet — balanced performance |
+          | `claude-3-5-haiku-20241022` | Claude 3.5 Haiku — fast and lightweight |
+
+          See [`GET /v1/models`](/api-reference/models/list-models) for the full list.
+
+          ## Version header
+
+          Every request must include `anthropic-version: 2023-06-01` (or a newer
+          version).
+
+          ## System prompt
+
+          The `system` field can be a plain text string or an array of content
+          blocks with cache-control directives for fine-grained prompt caching.
+
+          ## Tool calling
+
+          Define tools in `tools` using a JSON Schema `input_schema`. The model
+          returns `tool_use` blocks in `content`; feed back the tool result as a
+          `tool_result` block in the next turn.
+
+          ## Extended thinking
+
+          Set `thinking.type: enabled` and specify `thinking.budget_tokens` to
+          enable extended thinking mode. The model returns `thinking` content
+          blocks alongside the final answer.
+
+          ## Streaming
+
+          Set `stream: true` for SSE streaming. Event types include
+          `message_start`, `content_block_delta`, and `message_stop`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ClaudeMessageRequest"
+            examples:
+              simple:
+                summary: Basic text chat
+                value:
+                  model: claude-3-opus-20240229
+                  max_tokens: 1024
+                  messages:
+                    - role: user
+                      content: Introduce yourself in one sentence.
+              with_system:
+                summary: With system prompt
+                value:
+                  model: claude-3-opus-20240229
+                  max_tokens: 2048
+                  system: You are a professional technical documentation writer.
+                  messages:
+                    - role: user
+                      content: Write a brief introduction to REST API design principles.
+              tool_calling:
+                summary: Tool calling
+                value:
+                  model: claude-3-opus-20240229
+                  max_tokens: 1024
+                  tools:
+                    - name: get_weather
+                      description: Get the current weather for a city
+                      input_schema:
+                        type: object
+                        properties:
+                          city:
+                            type: string
+                            description: City name
+                        required:
+                          - city
+                  messages:
+                    - role: user
+                      content: What's the weather in Beijing?
+              extended_thinking:
+                summary: Extended thinking
+                value:
+                  model: claude-3-opus-20240229
+                  max_tokens: 16000
+                  thinking:
+                    type: enabled
+                    budget_tokens: 10000
+                  messages:
+                    - role: user
+                      content: Analyze the potential impact of quantum computing on modern cryptography.
+              streaming:
+                summary: Streaming response
+                value:
+                  model: claude-3-opus-20240229
+                  max_tokens: 1024
+                  stream: true
+                  messages:
+                    - role: user
+                      content: Write a short poem about the deep sea.
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClaudeMessageResponse"
+            text/event-stream:
+              schema:
+                type: string
+                description: |
+                  Server-Sent Events stream when `stream=true`. Event types include
+                  `message_start`, `content_block_start`, `content_block_delta`,
+                  `content_block_stop`, `message_delta`, and `message_stop`.
+        "400":
+          description: Invalid request parameters
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Invalid or missing API key
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: API Key
+      description: |
+        Bearer token authentication, format: `Authorization: Bearer sk-xxxxxx`.
+        Get your API key in the [console](https://getinfinityblue.com).
+
+  schemas:
+    # ── ChatCompletions ────────────────────────────────────────────────────────
+    ChatCompletionRequest:
+      type: object
+      required:
+        - model
+        - messages
+      properties:
+        model:
+          type: string
+          description: Model ID, e.g. `gpt-5.4`. See `GET /v1/models` for the full list.
+          examples:
+            - gpt-5.4
+        messages:
+          type: array
+          description: The messages comprising the conversation so far, in order.
+          items:
+            $ref: "#/components/schemas/Message"
+        temperature:
+          type: number
+          minimum: 0
+          maximum: 2
+          default: 1
+          description: |
+            Sampling temperature between 0 and 2. Higher values (e.g. 0.8)
+            make output more random; lower values (e.g. 0.2) make it more
+            focused and deterministic. Tune this or `top_p`, not both.
+        top_p:
+          type: number
+          minimum: 0
+          maximum: 1
+          default: 1
+          description: |
+            Nucleus sampling. The model considers only tokens within the top
+            `top_p` cumulative probability mass — e.g. 0.1 means only the top
+            10%. Tune this or `temperature`, not both.
+        n:
+          type: integer
+          minimum: 1
+          default: 1
+          description: Number of completions to generate for each input message.
+        stream:
+          type: boolean
+          default: false
+          description: Whether to stream the response as Server-Sent Events.
+        stream_options:
+          type: object
+          description: Options for streaming, only used when `stream=true`.
+          properties:
+            include_usage:
+              type: boolean
+              description: Whether to include `usage` stats in the final chunk.
+        stop:
+          description: Up to 4 stop sequences. Generation stops at any of them.
+          oneOf:
+            - type: string
+            - type: array
+              items:
+                type: string
+        max_tokens:
+          type: integer
+          description: |
+            Maximum tokens to generate in the completion (legacy). Use
+            `max_completion_tokens` for reasoning models.
+        max_completion_tokens:
+          type: integer
+          description: Maximum tokens to generate, including reasoning tokens.
+        presence_penalty:
+          type: number
+          minimum: -2
+          maximum: 2
+          default: 0
+          description: |
+            Between -2.0 and 2.0. Positive values penalize tokens that have
+            already appeared, increasing the model's likelihood to talk about
+            new topics.
+        frequency_penalty:
+          type: number
+          minimum: -2
+          maximum: 2
+          default: 0
+          description: |
+            Between -2.0 and 2.0. Positive values penalize tokens based on their
+            existing frequency, decreasing verbatim repetition.
+        logit_bias:
+          type: object
+          additionalProperties:
+            type: number
+          description: Bias map adjusting token likelihoods; keys are token IDs, values -100 to 100.
+        user:
+          type: string
+          description: A unique identifier for your end user, useful for abuse monitoring.
+        tools:
+          type: array
+          description: A list of tools the model may call. Currently only `function` is supported.
+          items:
+            $ref: "#/components/schemas/Tool"
+        tool_choice:
+          description: |
+            Controls whether and how the model calls tools. `none` disables
+            calls, `auto` lets the model decide, `required` forces at least one
+            call; or pass an object to force a specific function.
+          oneOf:
+            - type: string
+              enum:
+                - none
+                - auto
+                - required
+            - type: object
+              properties:
+                type:
+                  type: string
+                function:
+                  type: object
+                  properties:
+                    name:
+                      type: string
+        response_format:
+          $ref: "#/components/schemas/ResponseFormat"
+        seed:
+          type: integer
+          description: Random seed. The same seed and params return results as consistent as possible.
+        reasoning_effort:
+          type: string
+          enum:
+            - low
+            - medium
+            - high
+          description: Reasoning depth, only effective for reasoning-capable models.
+        modalities:
+          type: array
+          description: The output modalities you want the model to return.
+          items:
+            type: string
+            enum:
+              - text
+              - audio
+        audio:
+          type: object
+          description: Audio output parameters, used when `modalities` includes `audio`.
+          properties:
+            voice:
+              type: string
+              description: Voice.
+            format:
+              type: string
+              description: Audio format.
+
+    Message:
+      type: object
+      required:
+        - role
+        - content
+      properties:
+        role:
+          type: string
+          enum:
+            - system
+            - user
+            - assistant
+            - tool
+            - developer
+          description: The role of the message author.
+        content:
+          description: Message content — either a plain text string or an array of multimodal parts.
+          oneOf:
+            - type: string
+            - type: array
+              items:
+                $ref: "#/components/schemas/MessageContent"
+        name:
+          type: string
+          description: Author name, to distinguish participants of the same role.
+        tool_calls:
+          type: array
+          description: Tool calls initiated by an assistant message.
+          items:
+            $ref: "#/components/schemas/ToolCall"
+        tool_call_id:
+          type: string
+          description: The tool call ID this `tool`-role message responds to.
+        reasoning_content:
+          type: string
+          description: The reasoning trace returned by reasoning models.
+
+    MessageContent:
+      type: object
+      description: A multimodal message content part.
+      properties:
+        type:
+          type: string
+          enum:
+            - text
+            - image_url
+            - input_audio
+            - file
+            - video_url
+          description: Content part type.
+        text:
+          type: string
+          description: Text content, used when `type=text`.
+        image_url:
+          type: object
+          description: Image content, used when `type=image_url`.
+          properties:
+            url:
+              type: string
+              description: Image URL or base64 data URI.
+            detail:
+              type: string
+              enum:
+                - low
+                - high
+                - auto
+              description: Image parsing fidelity.
+        input_audio:
+          type: object
+          description: Audio content, used when `type=input_audio`.
+          properties:
+            data:
+              type: string
+              description: Base64-encoded audio data.
+            format:
+              type: string
+              enum:
+                - wav
+                - mp3
+              description: Audio format.
+        file:
+          type: object
+          description: File content, used when `type=file`.
+          properties:
+            filename:
+              type: string
+            file_data:
+              type: string
+              description: Base64-encoded file data.
+            file_id:
+              type: string
+        video_url:
+          type: object
+          description: Video content, used when `type=video_url`.
+          properties:
+            url:
+              type: string
+
+    Tool:
+      type: object
+      description: A tool definition the model may call.
+      properties:
+        type:
+          type: string
+          description: Tool type, currently `function`.
+          examples:
+            - function
+        function:
+          type: object
+          properties:
+            name:
+              type: string
+              description: Function name.
+            description:
+              type: string
+              description: What the function does, to help the model decide when to call it.
+            parameters:
+              type: object
+              description: Parameter definition in JSON Schema format.
+
+    ToolCall:
+      type: object
+      description: A tool call initiated by the model.
+      properties:
+        id:
+          type: string
+          description: Tool call ID.
+        type:
+          type: string
+          examples:
+            - function
+        function:
+          type: object
+          properties:
+            name:
+              type: string
+              description: The name of the called function.
+            arguments:
+              type: string
+              description: Model-generated arguments, as a JSON string.
+
+    ResponseFormat:
+      type: object
+      description: Controls the format of the model output.
+      properties:
+        type:
+          type: string
+          enum:
+            - text
+            - json_object
+            - json_schema
+          description: Output format type.
+        json_schema:
+          type: object
+          description: The JSON Schema definition when `type=json_schema`.
+
+    ChatCompletionResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique identifier for this completion.
+        object:
+          type: string
+          examples:
+            - chat.completion
+        created:
+          type: integer
+          description: Unix timestamp (seconds) of creation.
+        model:
+          type: string
+          description: The model that actually processed the request.
+        choices:
+          type: array
+          description: The list of completions generated by the model.
+          items:
+            type: object
+            properties:
+              index:
+                type: integer
+              message:
+                $ref: "#/components/schemas/Message"
+              finish_reason:
+                type: string
+                enum:
+                  - stop
+                  - length
+                  - tool_calls
+                  - content_filter
+                description: The reason generation stopped.
+        usage:
+          $ref: "#/components/schemas/Usage"
+        system_fingerprint:
+          type: string
+
+    Usage:
+      type: object
+      description: Token usage statistics for the request.
+      properties:
+        prompt_tokens:
+          type: integer
+          description: Tokens consumed by the prompt.
+        completion_tokens:
+          type: integer
+          description: Tokens consumed by the completion.
+        total_tokens:
+          type: integer
+          description: Total tokens consumed.
+        prompt_tokens_details:
+          type: object
+          properties:
+            cached_tokens:
+              type: integer
+              description: Tokens served from cache.
+            text_tokens:
+              type: integer
+            audio_tokens:
+              type: integer
+            image_tokens:
+              type: integer
+        completion_tokens_details:
+          type: object
+          properties:
+            text_tokens:
+              type: integer
+            audio_tokens:
+              type: integer
+            reasoning_tokens:
+              type: integer
+              description: Tokens consumed by reasoning.
+
+    ErrorResponse:
+      type: object
+      description: Standard error response.
+      properties:
+        error:
+          type: object
+          properties:
+            message:
+              type: string
+              description: Error message.
+              examples:
+                - Invalid duration. Supported range is 4 to 15 seconds.
+            type:
+              type: string
+              description: Error type.
+              examples:
+                - invalid_request_error
+            param:
+              type: [string, "null"]
+              description: The parameter related to the error.
+              examples:
+                - seconds
+            code:
+              type: [string, "null"]
+              description: Error code.
+              examples:
+                - invalid_duration
+
+    # ── Responses API ──────────────────────────────────────────────────────────
+    ResponsesRequest:
+      type: object
+      required:
+        - model
+      description: OpenAI Responses API request body.
+      properties:
+        model:
+          type: string
+          description: Model ID, e.g. `gpt-5.4`. See `GET /v1/models` for the full list.
+          examples:
+            - gpt-5.4
+        input:
+          description: |
+            Input content — either a plain text string or an array of messages.
+            Omit when using `previous_response_id` to continue a prior turn.
+          oneOf:
+            - type: string
+            - type: array
+              description: Message array in the same format as Chat Completions `messages`.
+              items:
+                type: object
+                properties:
+                  role:
+                    type: string
+                    enum:
+                      - system
+                      - user
+                      - assistant
+                      - tool
+                    description: Message role.
+                  content:
+                    description: Message content — string or multimodal array.
+                    oneOf:
+                      - type: string
+                      - type: array
+                        items:
+                          type: object
+        instructions:
+          type: string
+          description: System-level instructions, equivalent to a `system` message in Chat Completions.
+        max_output_tokens:
+          type: integer
+          description: Maximum number of tokens the model may generate in this response, including reasoning tokens.
+        temperature:
+          type: number
+          minimum: 0
+          maximum: 2
+          description: Sampling temperature between 0 and 2, controlling output randomness.
+        top_p:
+          type: number
+          minimum: 0
+          maximum: 1
+          description: Nucleus sampling threshold. Tune this or `temperature`, not both.
+        stream:
+          type: boolean
+          default: false
+          description: Whether to stream the response as Server-Sent Events.
+        tools:
+          type: array
+          description: A list of tools the model may call.
+          items:
+            type: object
+        tool_choice:
+          description: |
+            Tool calling strategy — `auto`, `none`, or `required` as a string,
+            or an object specifying a particular tool.
+          oneOf:
+            - type: string
+              enum:
+                - auto
+                - none
+                - required
+            - type: object
+        reasoning:
+          type: object
+          description: Reasoning configuration, only effective for reasoning-capable models.
+          properties:
+            effort:
+              type: string
+              enum:
+                - low
+                - medium
+                - high
+              description: Reasoning depth.
+            summary:
+              type: string
+              enum:
+                - auto
+                - concise
+                - detailed
+              description: Level of detail in the reasoning summary.
+        previous_response_id:
+          type: string
+          description: |
+            The `id` of a prior response. When set, the conversation continues
+            from that point without resending history.
+        truncation:
+          type: string
+          enum:
+            - auto
+            - disabled
+          description: |
+            Context truncation strategy. `auto` drops older context when the
+            window is exceeded; `disabled` returns an error instead.
+
+    ResponsesResponse:
+      type: object
+      description: OpenAI Responses API response body.
+      properties:
+        id:
+          type: string
+          description: Unique identifier for this response, usable as `previous_response_id` in the next turn.
+        object:
+          type: string
+          description: Object type, value is `response`.
+          examples:
+            - response
+        created_at:
+          type: integer
+          description: Unix timestamp (seconds) of creation.
+        status:
+          type: string
+          enum:
+            - completed
+            - failed
+            - in_progress
+            - incomplete
+          description: Response status.
+        model:
+          type: string
+          description: The model that actually processed the request.
+        output:
+          type: array
+          description: List of output blocks generated by the model.
+          items:
+            type: object
+            properties:
+              type:
+                type: string
+                description: Output block type, e.g. `message`.
+              id:
+                type: string
+                description: Output block ID.
+              status:
+                type: string
+                description: Output block status.
+              role:
+                type: string
+                description: Role, typically `assistant`.
+              content:
+                type: array
+                description: List of content parts.
+                items:
+                  type: object
+                  properties:
+                    type:
+                      type: string
+                      description: Content part type, e.g. `output_text`.
+                    text:
+                      type: string
+                      description: Text content.
+        usage:
+          $ref: "#/components/schemas/Usage"
+
+    # ── Gemini ─────────────────────────────────────────────────────────────────
+    GeminiGenerateContentRequest:
+      type: object
+      description: Gemini generateContent request body, used for both text chat and media recognition.
+      properties:
+        contents:
+          type: array
+          description: |
+            Conversation contents in chronological order. Each element has a
+            `role` (`user` or `model`) and a `parts` array of content fragments.
+          items:
+            type: object
+            properties:
+              role:
+                type: string
+                enum:
+                  - user
+                  - model
+                description: Message role.
+              parts:
+                type: array
+                description: Content parts, which may include text, images, PDFs, audio, or video.
+                items:
+                  type: object
+                  properties:
+                    text:
+                      type: string
+                      description: Text content.
+                    inlineData:
+                      type: object
+                      description: Base64-encoded media data for image, PDF, audio, or video recognition.
+                      properties:
+                        mimeType:
+                          type: string
+                          description: |
+                            Media MIME type, e.g. `image/jpeg`, `image/png`,
+                            `application/pdf`, `audio/mpeg`, `video/mp4`.
+                          examples:
+                            - image/jpeg
+                        data:
+                          type: string
+                          description: Base64-encoded media file data.
+        generationConfig:
+          type: object
+          description: Generation parameter configuration.
+          properties:
+            temperature:
+              type: number
+              description: Sampling temperature, controlling output randomness.
+            topP:
+              type: number
+              description: Nucleus sampling threshold.
+            topK:
+              type: integer
+              description: Top-K sampling — the model considers only the K most probable tokens at each step.
+            maxOutputTokens:
+              type: integer
+              description: Maximum number of tokens to generate in the response.
+            stopSequences:
+              type: array
+              description: Stop sequences — generation halts when any of these is produced.
+              items:
+                type: string
+        safetySettings:
+          type: array
+          description: Safety filter settings to adjust blocking thresholds per harm category.
+          items:
+            type: object
+            properties:
+              category:
+                type: string
+                description: Harm category, e.g. `HARM_CATEGORY_HARASSMENT`.
+              threshold:
+                type: string
+                description: Blocking threshold, e.g. `BLOCK_NONE`, `BLOCK_ONLY_HIGH`.
+        tools:
+          type: array
+          description: Tool list for function calling.
+          items:
+            type: object
+        systemInstruction:
+          type: object
+          description: System-level instruction in the same format as a `contents` element.
+          properties:
+            parts:
+              type: array
+              description: System instruction content parts.
+              items:
+                type: object
+                properties:
+                  text:
+                    type: string
+                    description: System instruction text.
+
+    GeminiGenerateContentResponse:
+      type: object
+      description: Gemini generateContent response body.
+      properties:
+        candidates:
+          type: array
+          description: List of candidate responses generated by the model.
+          items:
+            type: object
+            properties:
+              content:
+                type: object
+                description: Response content.
+                properties:
+                  role:
+                    type: string
+                    description: Role, typically `model`.
+                  parts:
+                    type: array
+                    description: Content parts.
+                    items:
+                      type: object
+                      properties:
+                        text:
+                          type: string
+                          description: Text content.
+              finishReason:
+                type: string
+                description: Reason generation stopped, e.g. `STOP`, `MAX_TOKENS`, `SAFETY`.
+              safetyRatings:
+                type: array
+                description: Safety ratings per harm category.
+                items:
+                  type: object
+                  properties:
+                    category:
+                      type: string
+                      description: Harm category.
+                    probability:
+                      type: string
+                      description: Harm probability, e.g. `NEGLIGIBLE`, `LOW`, `MEDIUM`, `HIGH`.
+        usageMetadata:
+          type: object
+          description: Token usage statistics.
+          properties:
+            promptTokenCount:
+              type: integer
+              description: Tokens consumed by the prompt.
+            candidatesTokenCount:
+              type: integer
+              description: Tokens consumed across all candidate responses.
+            totalTokenCount:
+              type: integer
+              description: Total tokens consumed.
+
+    # ── Claude Messages ────────────────────────────────────────────────────────
+    ClaudeMessageRequest:
+      type: object
+      required:
+        - model
+        - messages
+        - max_tokens
+      description: Anthropic Claude Messages API request body.
+      properties:
+        model:
+          type: string
+          description: Model ID, e.g. `claude-3-opus-20240229`. See `GET /v1/models` for the full list.
+          examples:
+            - claude-3-opus-20240229
+        messages:
+          type: array
+          description: Conversation messages. `role` must alternate between `user` and `assistant`.
+          items:
+            $ref: "#/components/schemas/ClaudeMessage"
+        system:
+          description: |
+            System prompt — either a plain text string or an array of content
+            blocks with cache-control directives.
+          oneOf:
+            - type: string
+            - type: array
+              items:
+                type: object
+        max_tokens:
+          type: integer
+          minimum: 1
+          description: Maximum number of tokens the model may generate. Required.
+        temperature:
+          type: number
+          minimum: 0
+          maximum: 1
+          description: Sampling temperature between 0 and 1, controlling output randomness.
+        top_p:
+          type: number
+          description: Nucleus sampling threshold. Tune this or `temperature`, not both.
+        top_k:
+          type: integer
+          description: Top-K sampling — only the K most probable tokens are considered.
+        stream:
+          type: boolean
+          description: Whether to stream the response as Server-Sent Events.
+        stop_sequences:
+          type: array
+          description: Stop sequences — generation halts when any of these is produced.
+          items:
+            type: string
+        tools:
+          type: array
+          description: Tools the model may call. Each tool requires `name`, `description`, and `input_schema`.
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+                description: Tool name.
+              description:
+                type: string
+                description: What the tool does, to help the model decide when to call it.
+              input_schema:
+                type: object
+                description: Input parameter definition in JSON Schema format.
+        tool_choice:
+          description: |
+            Tool calling strategy. `auto` lets the model decide, `any` forces at least
+            one tool call, `tool` forces a specific tool (also set `name`).
+          oneOf:
+            - type: object
+              properties:
+                type:
+                  type: string
+                  enum:
+                    - auto
+                    - any
+                    - tool
+                  description: Strategy type.
+                name:
+                  type: string
+                  description: Tool name when `type=tool`.
+        thinking:
+          type: object
+          description: Extended thinking configuration, only effective for models that support it.
+          properties:
+            type:
+              type: string
+              enum:
+                - enabled
+                - disabled
+              description: Whether to enable extended thinking.
+            budget_tokens:
+              type: integer
+              description: |
+                Maximum token budget for the thinking process. Must be positive;
+                at least 1000 is recommended for meaningful thinking output.
+        metadata:
+          type: object
+          description: Additional request metadata.
+          properties:
+            user_id:
+              type: string
+              description: A unique identifier for your end user, useful for abuse monitoring.
+
+    ClaudeMessage:
+      type: object
+      required:
+        - role
+        - content
+      description: A Claude conversation message.
+      properties:
+        role:
+          type: string
+          enum:
+            - user
+            - assistant
+          description: Message role, must alternate between `user` and `assistant`.
+        content:
+          description: |
+            Message content — either a plain text string or an array of content
+            blocks (text, image, tool_use, tool_result, etc.).
+          oneOf:
+            - type: string
+            - type: array
+              items:
+                type: object
+                properties:
+                  type:
+                    type: string
+                    enum:
+                      - text
+                      - image
+                      - tool_use
+                      - tool_result
+                    description: Content block type.
+                  text:
+                    type: string
+                    description: Text content, present when `type=text`.
+                  source:
+                    type: object
+                    description: Image source, used when `type=image`.
+                    properties:
+                      type:
+                        type: string
+                        enum:
+                          - base64
+                          - url
+                        description: Source type.
+                      media_type:
+                        type: string
+                        description: Image MIME type, e.g. `image/jpeg`, `image/png`, `image/webp`, `image/gif`.
+                      data:
+                        type: string
+                        description: Base64-encoded image data, used when `type=base64`.
+                      url:
+                        type: string
+                        description: Image URL, used when `type=url`.
+                  id:
+                    type: string
+                    description: Tool call ID, present when `type=tool_use`.
+                  name:
+                    type: string
+                    description: Tool name, present when `type=tool_use`.
+                  input:
+                    type: object
+                    description: Tool input arguments, present when `type=tool_use`.
+                  tool_use_id:
+                    type: string
+                    description: The tool call ID this result responds to, present when `type=tool_result`.
+                  content:
+                    type: string
+                    description: Tool execution result, present when `type=tool_result`.
+
+    ClaudeMessageResponse:
+      type: object
+      description: Anthropic Claude Messages API response body.
+      properties:
+        id:
+          type: string
+          description: Unique identifier for this message.
+        type:
+          type: string
+          description: Object type, value is `message`.
+          examples:
+            - message
+        role:
+          type: string
+          description: Response role, value is `assistant`.
+          examples:
+            - assistant
+        content:
+          type: array
+          description: List of response content blocks — may include text, tool_use, or thinking blocks.
+          items:
+            type: object
+            properties:
+              type:
+                type: string
+                description: Content block type, e.g. `text`, `tool_use`, `thinking`.
+              text:
+                type: string
+                description: Text content, present when `type=text`.
+        model:
+          type: string
+          description: The model that actually processed the request.
+        stop_reason:
+          type: string
+          enum:
+            - end_turn
+            - max_tokens
+            - stop_sequence
+            - tool_use
+          description: The reason generation stopped.
+        usage:
+          type: object
+          description: Token usage statistics.
+          properties:
+            input_tokens:
+              type: integer
+              description: Tokens consumed by the input.
+            output_tokens:
+              type: integer
+              description: Tokens consumed by the output.
+            cache_creation_input_tokens:
+              type: integer
+              description: Tokens written to prompt cache (prompt caching feature).
+            cache_read_input_tokens:
+              type: integer
+              description: Tokens read from prompt cache (prompt caching feature).

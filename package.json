@@ -4,10 +4,8 @@
   "description": "InfinityBlue API documentation — OpenAPI spec + Mintlify site",
   "private": true,
   "scripts": {
-    "lint": "redocly lint openapi/openapi.zh.yaml openapi/openapi.en.yaml",
-    "validate:zh": "mint validate openapi/openapi.zh.yaml",
-    "validate:en": "mint validate openapi/openapi.en.yaml",
-    "validate": "npm run validate:zh && npm run validate:en",
+    "lint": "redocly lint openapi/chat.zh.yaml openapi/chat.en.yaml openapi/images.zh.yaml openapi/images.en.yaml openapi/videos.zh.yaml openapi/videos.en.yaml openapi/models.zh.yaml openapi/models.en.yaml",
+    "validate": "mint validate",
     "dev": "mint dev"
   },
   "devDependencies": {

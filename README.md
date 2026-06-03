@@ -1,91 +1,79 @@
 # InfinityBlue API Docs
 
-OpenAPI 3.1 specification + Mintlify documentation site for
-[InfinityBlue API](https://infinityblue.com) — a unified AI API
-gateway exposing chat, image, video, and model discovery endpoints.
+Bilingual OpenAPI 3.1 specs + Mintlify documentation site for the
+**InfinityBlue API** — a unified AI gateway exposing OpenAI-, Gemini-,
+and Claude-compatible endpoints for chat, image, video, and model
+discovery.
 
-**Live site**: <https://inbllc.mintlify.app> (default: 中文)
-**GitHub**: <https://github.com/yzlltyyh/infinityblue-api-docs>
+- **Live docs**: <https://docs.getinfinityblue.com> (default: 中文)
+- **Model list & pricing**: <https://api.getinfinityblue.com/pricing>
+- **GitHub**: <https://github.com/yzlltyyh/infinityblue-api-docs>
 
 ## Repository layout
 
 ```
-openapi/                 OpenAPI 3.1 specification (source of truth)
-├── openapi.yaml         Entry point
-├── openapi.bundled.yaml Generated publish artifact (Mintlify reads this)
-├── paths/               Per-endpoint YAML
-└── components/          Schemas + shared error responses
-docs.json                Mintlify config (navigation, theme, OpenAPI pointer)
-index.mdx                English root page
-introduction.mdx         English introduction
-quickstart/              English quickstart (auth, first-request, errors)
-api-reference/           English API reference intros (chat, images, videos, models)
-guides/                  English in-depth guides (9 topics)
-zh/                      Chinese mirror of all MDX content
-favicon.svg              Repo-root favicon (docs.json references /favicon.svg)
-.mintignore              Excludes source OpenAPI from Mintlify's auto-scan
-AGENTS.md                AI agent conventions
+openapi/                 Self-contained OpenAPI 3.1 specs (per language, per category)
+├── chat.zh.yaml         聊天: ChatCompletions / Responses / Gemini / Claude
+├── chat.en.yaml         (English mirror)
+├── images.zh.yaml       图像: 生成 / 编辑 / Nano Banana
+├── images.en.yaml
+├── videos.zh.yaml       视频: 通用 / Seedance 异步
+├── videos.en.yaml
+├── models.zh.yaml       模型列表: OpenAI / Gemini 格式
+└── models.en.yaml
+docs.json                Mintlify config (per-language navigation + OpenAPI pointers)
+index.mdx / introduction.mdx   English landing + overview
+quickstart/              English: auth, first-request, errors
+guides/                  English: model-selection, streaming, multimodal-input
+zh/                      Chinese mirror of every MDX
+images/favicon.svg       Favicon (docs.json references /favicon.svg)
+AGENTS.md                AI agent conventions (read first)
 package.json             npm scripts
 redocly.yaml             Redocly lint config
-images/                  Image assets
 ```
+
+Each spec is a **single self-contained file** (internal `$ref` only).
+There is no bundle step and no shared `paths/` or `components/` tree.
 
 ## Local development
 
 ```bash
 npm install
-npm run dev          # Mintlify local preview at http://localhost:3000
+npm run lint         # Redocly — strict schema check on all 8 specs
+npm run dev          # Mintlify preview at http://localhost:3000 (see note)
 ```
 
-## Validation
+> **Note:** `mint dev` / `mint validate` may crash locally with an
+> "Invalid hook call" React error (a nested-React install issue inside
+> `@mintlify/previewing`, unrelated to the specs). If so, use `npm run
+> lint` locally and a Mintlify **preview deployment** (open a PR) for
+> the authoritative render. See [`AGENTS.md`](AGENTS.md).
 
-```bash
-npm run lint         # Redocly CLI — fast local schema check
-npm run validate     # Mintlify validate — same engine as deploy
-npm run bundle       # Regenerate openapi/openapi.bundled.yaml
-```
+## Bilingual model
 
-The bundled file is what Mintlify reads (`docs.json` points to it).
-Mintlify does **not** support cross-file `$ref`, so bundling is
-required after any change to source OpenAPI files. See
-[`AGENTS.md`](AGENTS.md) for the full workflow and rationale.
+Chinese is the default language and the **source of truth for content**.
+Each category ships two specs (`*.zh.yaml` + `*.en.yaml`) with identical
+structure — only the natural-language strings differ. When you edit one
+language, mirror the structural change to the other. Full rationale in
+[`AGENTS.md`](AGENTS.md).
 
 ## Deployment
 
-Auto-deploys to Mintlify on every `git push` to `main`. No CI/CD
-required. Takes 1-2 minutes from push to live.
+Auto-deploys to Mintlify on every `git push` to `main` (1-2 min from
+push to live). No CI/CD required.
 
-## Languages
-
-Default is **中文 (zh)**. Language switcher in the top-right of the
-docs site lets users toggle to **English**. Both languages have
-complete content; translation is light-touch (adapt, don't literally
-translate).
-
-## For AI agents
-
-This repository is designed to be modified by AI agents
-(Cursor, Claude Code, Windsurf). The complete convention document is
-[`AGENTS.md`](AGENTS.md) — read it first before editing anything.
-
-## Integrations
-
-- **Apifox** (debugging sandbox): consumer of our OpenAPI via scheduled
-  URL import. See `guides/apifox-sandbox.mdx`.
-- **Mintlify MCP** (agent-readable docs): Search + Admin MCP servers
-  expose the live docs to IDE agents. See `guides/mcp-integration.mdx`.
-
-## Endpoints exposed (13 total)
+## Endpoints (16 total)
 
 - **Models**: `GET /v1/models`, `GET /v1beta/models`
 - **Chat**: `POST /v1/chat/completions`, `POST /v1/responses`,
-  `POST /v1/messages`, `POST /v1beta/models/{model}:generateContent`
+  `POST /v1/messages` (Claude), `POST /v1beta/models/{model}:generateContent` (Gemini)
 - **Images**: `POST /v1/images/generations`, `POST /v1/images/edits`,
-  `POST /v1beta/models/{model}:generateContent`
+  plus Nano Banana via `:generateContent` and `/v1/chat/completions`
 - **Videos**: `POST /v1/videos`, `GET /v1/videos/{task_id}`,
-  `GET /v1/videos/{task_id}/content`
-- **Legacy** (deprecated): `POST /v1/video/generations`,
+  `GET /v1/videos/{task_id}/content`, `POST /v1/video/generations`,
   `GET /v1/video/generations/{task_id}`
 
-`audio`, `embeddings`, `rerank` are not on offer yet — placeholder
-files exist in `api-reference/` but are not in the navigation.
+## For AI agents
+
+This repo is designed to be edited by AI agents (Cursor, Claude Code,
+Windsurf). Read [`AGENTS.md`](AGENTS.md) before changing anything.

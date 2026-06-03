@@ -1,9 +1,3 @@
-apis:
-  zh:
-    root: openapi/openapi.zh.yaml
-  en:
-    root: openapi/openapi.en.yaml
-
 extends:
   - recommended
 

@@ -1,22 +1,17 @@
 ---
 title: "多模态输入"
-description: "在对话中发送图片、音频、PDF"
+description: "在对话中发送图片与 PDF"
 ---
 
 # 多模态输入
 
-现代 chat 模型支持图片、音频、PDF 输入（不仅是文本）。
-
-<Note>
-  完整指南（含 base64 编码、detail 参数、PDF 处理）请参考
-  [English version](/guides/multimodal-input)。
-</Note>
+支持视觉能力的模型可以在对话中接收图片和 PDF，与文本一起处理。
 
 ## 发送图片（URL）
 
 ```json
 {
-  "model": "gpt-4o",
+  "model": "gpt-5.4",
   "messages": [
     {
       "role": "user",
@@ -35,13 +30,13 @@ description: "在对话中发送图片、音频、PDF"
 import base64
 from openai import OpenAI
 
-client = OpenAI(api_key="YOUR_API_KEY", base_url="https://api.infinityblue.com/v1")
+client = OpenAI(api_key="YOUR_API_KEY", base_url="https://api.getinfinityblue.com/v1")
 
 with open("cat.jpg", "rb") as f:
     image_data = base64.b64encode(f.read()).decode("utf-8")
 
 response = client.chat.completions.create(
-    model="gpt-4o",
+    model="gpt-5.4",
     messages=[{
         "role": "user",
         "content": [
@@ -50,12 +45,29 @@ response = client.chat.completions.create(
         ]
     }]
 )
+print(response.choices[0].message.content)
+```
+
+## `detail` 参数
+
+`image_url` 对象支持 `detail` 字段，控制图片处理精度：
+
+- `"auto"`（默认）：由模型根据图片大小自动选择。
+- `"low"`：降采样到 512×512，消耗 token 更少，适合不需要细节的场景。
+- `"high"`：保留高分辨率，消耗 token 更多，适合需要识别文字或细节的图片。
+
+```json
+{"type": "image_url", "image_url": {"url": "...", "detail": "high"}}
 ```
 
 ## 支持的能力
 
-| 模型 | 图片 | 音频 | PDF |
-|---|---|---|---|
-| `gpt-4o` / `gpt-5` | ✅ | ❌ | ✅ |
-| `claude-3.5+` | ✅ | ❌ | ✅ |
-| `gemini-2.0+` | ✅ | ✅ | ✅ |
+| 模型 | 图片 | PDF |
+|---|---|---|
+| `gpt-5.4` / `gpt-5.5` | ✅ | ✅ |
+| `gemini-3.1-pro-preview` / `gemini-2.5-pro` | ✅ | ✅ |
+| `gemini-2.5-flash` / `gemini-3-flash-preview` | ✅ | ✅ |
+
+<Note>
+  本网关当前不提供音频转录或语音输入能力。如需处理音频内容，请先在本地转录为文本后再发送。
+</Note>

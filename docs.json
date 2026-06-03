@@ -21,33 +21,19 @@
                 "group": "开始使用",
                 "pages": [
                   "zh/index",
-                  "zh/introduction",
-                  "zh/quickstart/auth",
-                  "zh/quickstart/first-request",
-                  "zh/quickstart/errors"
+                  "zh/introduction"
                 ]
               },
               {
-                "group": "API 参考",
+                "group": "聊天（Chat）",
                 "pages": [
-                  "zh/api-reference/chat",
-                  "zh/api-reference/images",
-                  "zh/api-reference/videos",
-                  "zh/api-reference/models"
-                ]
-              },
-              {
-                "group": "指南",
-                "pages": [
-                  "zh/guides/model-selection",
-                  "zh/guides/streaming",
-                  "zh/guides/multimodal-input",
-                  "zh/guides/cost-optimization",
-                  "zh/guides/function-calling",
-                  "zh/guides/error-codes",
-                  "zh/guides/webhook-payloads",
-                  "zh/guides/apifox-sandbox",
-                  "zh/guides/mcp-integration"
+                  {
+                    "group": "原生 OpenAI 格式",
+                    "openapi": "openapi/openapi.zh.yaml",
+                    "pages": [
+                      "POST /v1/chat/completions"
+                    ]
+                  }
                 ]
               }
             ]
@@ -64,33 +50,19 @@
                 "group": "Get Started",
                 "pages": [
                   "index",
-                  "introduction",
-                  "quickstart/auth",
-                  "quickstart/first-request",
-                  "quickstart/errors"
+                  "introduction"
                 ]
               },
               {
-                "group": "API Reference",
+                "group": "Chat",
                 "pages": [
-                  "api-reference/chat",
-                  "api-reference/images",
-                  "api-reference/videos",
-                  "api-reference/models"
-                ]
-              },
-              {
-                "group": "Guides",
-                "pages": [
-                  "guides/model-selection",
-                  "guides/streaming",
-                  "guides/multimodal-input",
-                  "guides/cost-optimization",
-                  "guides/function-calling",
-                  "guides/error-codes",
-                  "guides/webhook-payloads",
-                  "guides/apifox-sandbox",
-                  "guides/mcp-integration"
+                  {
+                    "group": "OpenAI format",
+                    "openapi": "openapi/openapi.en.yaml",
+                    "pages": [
+                      "POST /v1/chat/completions"
+                    ]
+                  }
                 ]
               }
             ]
@@ -100,7 +72,16 @@
     ]
   },
   "api": {
-    "openapi": "openapi/openapi.bundled.yaml"
+    "playground": {
+      "display": "interactive"
+    },
+    "examples": {
+      "languages": [
+        "curl",
+        "python",
+        "javascript"
+      ]
+    }
   },
   "footer": {
     "socials": {

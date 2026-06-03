@@ -1,6 +1,8 @@
 apis:
-  api@v1:
-    root: openapi/openapi.yaml
+  zh:
+    root: openapi/openapi.zh.yaml
+  en:
+    root: openapi/openapi.en.yaml
 
 extends:
   - recommended

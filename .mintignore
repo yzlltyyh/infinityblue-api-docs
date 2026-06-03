@@ -1,3 +1,4 @@
 openapi/openapi.yaml
 openapi/paths/
 openapi/components/
+openapi/openapi.bundled.yaml

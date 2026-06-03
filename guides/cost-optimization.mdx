@@ -1,0 +1,124 @@
+---
+title: "Cost optimization"
+description: "How to minimize API spend without sacrificing quality"
+---
+
+Most users can cut their API bill by 50-80% with these techniques.
+The savings compound at scale.
+
+## 1. Pick the smallest model that meets your quality bar
+
+The single biggest lever. For many tasks, `gpt-4o-mini` or
+`gemini-2.0-flash` deliver 90% of `gpt-4o` quality at 5-20% of the
+cost.
+
+| Task | Expensive | Cheap alternative | When cheap works |
+|---|---|---|---|
+| Classification | `gpt-4o` | `gpt-4o-mini` | Always for well-defined tasks |
+| Extraction | `gpt-4o` | `gpt-4o-mini` or `gemini-2.0-flash` | When prompt is clear |
+| Summarization | `gpt-4o` | `claude-haiku-4-5` | For news, docs, short content |
+| Code review | `gpt-4o` | `deepseek-v3` | Routine linting, formatting |
+| Customer support | `gpt-4o` | `gpt-4o-mini` | FAQ, ticket routing |
+| Creative writing | `gpt-4o` | `claude-sonnet-4-6` (similar cost) | When speed matters |
+| Long-doc analysis | `gpt-4o` | `gemini-2.5-pro` (1M context) | Avoids chunking overhead |
+
+**Tip**: Run a side-by-side evaluation on 50-100 real examples. Pick
+the cheapest model that meets your quality bar (e.g. ≥90% accuracy).
+
+## 2. Enable prompt caching
+
+Caching gives up to 90% discount on repeated prompt prefixes.
+
+| Provider | What gets cached | How to enable |
+|---|---|---|
+| Anthropic | System prompt, tool definitions, long docs | Mark `cache_control: {type: "ephemeral"}` on content blocks |
+| OpenAI | Long system prompts (≥1024 tokens) | Automatic when same prefix is sent across requests |
+| Gemini | System instructions, large file content | Implicit (cached automatically) |
+
+A typical customer-support flow with a 5,000-token system prompt
+referenced across 100 conversations:
+- Without cache: 500,000 tokens billed at full price
+- With cache: 5,000 (first) + 99 × 500 (cache reads) = 54,500 tokens
+  billed at full price — **~89% savings**
+
+## 3. Set explicit `max_tokens`
+
+Without a limit, a chat completion might generate 2,000+ tokens when
+100 would suffice. Always set `max_tokens` (or `max_output_tokens`).
+
+```json
+{
+  "model": "gpt-4o",
+  "messages": [...],
+  "max_tokens": 500
+}
+```
+
+## 4. Use batch API for non-urgent workloads
+
+| Mode | Latency | Discount |
+|---|---|---|
+| Real-time | ~1s | None |
+| Batch | up to 24h | 50% |
+
+If your use case tolerates 24h (overnight report generation,
+content moderation queue, data labeling), use the batch API.
+
+## 5. Trim your input tokens
+
+The #1 silent cost is bloated prompts.
+
+- **Remove redundant instructions**: "Be helpful, harmless, and honest"
+  is implied for most models
+- **Compress few-shot examples**: 3 examples is usually enough; more
+  adds cost without quality gains
+- **Use the smallest viable `temperature`**: For factual tasks
+  (extraction, classification), `temperature: 0` is cheaper because
+  outputs are shorter and more deterministic
+- **Avoid JSON mode unless you need it**: It tends to generate more
+  tokens than natural language for the same information
+
+## 6. Stream long generations
+
+For UI apps, set `stream: true`. You don't save tokens, but you
+**bill to the second, not to the full request** — and users
+perceive the response as faster, reducing churn on long outputs.
+
+## 7. Set per-key spend limits
+
+In the dashboard:
+- **Per-key monthly cap**: hard limit, blocks the key when reached
+- **Per-key rate limit**: protects against runaway loops in your code
+
+A bug that retries 1,000 times/minute for an hour = 60,000 requests.
+Without a rate limit, that's your entire monthly budget gone.
+
+## 8. Cache results at the application layer
+
+If two users ask the same question:
+- Without cache: 2 API calls, double cost
+- With cache: 1 API call, half cost
+
+TTL guidance:
+- Factual Q&A: 24 hours (low risk of staleness)
+- Document summaries: until the document changes
+- Code generation: 1 hour (high risk of being stale)
+
+## Cost monitoring
+
+Set up alerts in the dashboard for:
+- Daily spend > $X
+- Single API key > Y requests/minute (anomaly)
+- 4xx error rate > 5% (often a sign of a bug loop)
+
+## Quick checklist
+
+Before shipping a new feature, confirm:
+
+- [ ] Cheapest model that meets quality bar
+- [ ] `max_tokens` set
+- [ ] `temperature: 0` for factual tasks
+- [ ] System prompt under 1,500 tokens (cache eligibility)
+- [ ] Per-key rate limit configured
+- [ ] Application-layer cache for repeated queries
+- [ ] Error retry with exponential backoff (avoid retry storms)

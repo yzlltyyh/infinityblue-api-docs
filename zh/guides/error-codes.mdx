@@ -1,0 +1,154 @@
+---
+title: "错误码参考"
+description: "完整错误码清单和处理方式"
+---
+
+每个错误响应有结构化的 body：
+
+```json
+{
+  "error": {
+    "message": "Human-readable description",
+    "type": "invalid_request_error",
+    "code": "invalid_parameter",
+    "param": "temperature"
+  }
+}
+```
+
+| 字段 | 类型 | 描述 |
+|---|---|---|
+| `error.message` | string | 人可读。可以记录日志。**不要**直接给最终用户展示。 |
+| `error.type` | string | 六大类别之一。顶层分支用。 |
+| `error.code` | string\|null | 机器可读。细粒度处理用。 |
+| `error.param` | string\|null | 哪个参数出错。 |
+
+## 错误类别
+
+| 类型 | HTTP | 何时 | 处理 |
+|---|---|---|---|
+| `invalid_request_error` | 400 | body 格式错、缺字段、值非法 | 修请求；不重试 |
+| `authentication_error` | 401 | 缺/无效/过期 API key | 检查 Authorization header；重新认证 |
+| `permission_error` | 403 | key 缺 scope 或模型不在 plan 里 | 升级 plan 或换 key |
+| `not_found_error` | 404 | 端点或资源不存在 | 检查 URL 和 ID |
+| `rate_limit_error` | 429 | 触发速率限制 | 等待 + 指数退避 |
+| `server_error` | 500+ | 网关或上游失败 | 退避重试；持续则报障 |
+
+## 完整错误码列表
+
+### `invalid_request_error` (400)
+
+| Code | 含义 | 修复 |
+|---|---|---|
+| `invalid_parameter` | 字段值非法（超范围、类型错等） | 看 `error.param`；查 API 参考 |
+| `missing_required_parameter` | 必填字段缺失 | 加 `error.param` 指出的字段 |
+| `context_length_exceeded` | 输入 + `max_tokens` 超模型上下文 | 减输入或分片；用更大上下文的模型 |
+| `invalid_image` | 图片数据损坏（错格式、过小） | 验证 PNG/JPEG/WEBP，< 20MB |
+| `invalid_audio` | 音频数据损坏 | 验证 MP3/WAV，< 25MB |
+| `invalid_model` | 模型 ID 未知或不可用 | 看 `/v1/models` |
+| `invalid_request_body` | JSON 格式错 | 解析错误；查尾部逗号、未转义引号 |
+| `content_policy_violation` | prompt 被内容过滤器拦截 | 换 prompt；不重试 |
+| `unsupported_parameter` | 参数对该模型非法 | 看 `/v1/models` 的模型文档 |
+| `tool_call_not_supported` | 模型不支持 function calling | 换模型或去掉 `tools` |
+| `prompt_too_long` | 输入超上下文窗口 | 用更短 prompt 或分片 |
+
+### `authentication_error` (401)
+
+| Code | 含义 | 修复 |
+|---|---|---|
+| `invalid_api_key` | API key 错、被撤销或过期 | 在 dashboard 生成新 key |
+| `missing_authorization` | 没传 `Authorization` header | 加 header |
+| `expired_api_key` | key 曾有效但已被轮换 | 生成新 key |
+
+### `permission_error` (403)
+
+| Code | 含义 | 修复 |
+|---|---|---|
+| `model_not_accessible` | key 的 plan 不含此模型 | 升级 plan 或换模型 |
+| `region_not_available` | 模型在你所在区域不可用 | 换模型或联系支持 |
+| `organization_verification_required` | 需要组织级验证 | 在 dashboard 完成验证 |
+| `api_key_disabled` | key 被禁用（如滥用） | 联系支持 |
+
+### `not_found_error` (404)
+
+| Code | 含义 | 修复 |
+|---|---|---|
+| `resource_not_found` | 资源 ID 不存在（如 video task ID） | 查 ID；可能过期或已删 |
+| `model_not_found` | 同 `invalid_model`，不同分类 | 见上 |
+| `endpoint_not_found` | URL 路径错 | 查 API 参考的合法路径 |
+
+### `rate_limit_error` (429)
+
+| Code | 含义 | 修复 |
+|---|---|---|
+| `rate_limit_exceeded` | 触发请求/分钟限制 | 等待 + 退避重试 |
+| `tokens_per_minute_exceeded` | 触发 token/分钟限制 | 减 `max_tokens` 或批量请求 |
+| `concurrent_requests_exceeded` | 触发并发连接限制 | 队列请求；加小延迟 |
+| `insufficient_quota` | 账户余额不足 | 充值 |
+
+429 响应也含速率限制 header：
+
+| Header | 含义 |
+|---|---|
+| `X-RateLimit-Limit-Requests` | 窗口期总请求数 |
+| `X-RateLimit-Remaining-Requests` | 窗口期剩余请求数 |
+| `X-RateLimit-Reset-Requests` | 窗口重置的 Unix 时间戳 |
+| `X-RateLimit-Limit-Tokens` | 窗口期总 token 数 |
+| `X-RateLimit-Remaining-Tokens` | 窗口期剩余 token 数 |
+
+**主动读这些 header** 避免先撞上限。当
+`X-RateLimit-Remaining-Requests < 10%` 时开始节流。
+
+### `server_error` (500+)
+
+| Code | 含义 | 修复 |
+|---|---|---|
+| `upstream_error` | 上游模型提供商（OpenAI 等）报错 | 退避重试；持续则换模型 |
+| `upstream_timeout` | 上游响应超时 | 重试；用更快的模型 |
+| `internal_error` | 网关遇到意外错误 | 带 request ID 报障 |
+| `service_unavailable` | 上游宕机 | 几分钟后重试 |
+
+## 重试策略
+
+```python
+import random
+import time
+
+RETRYABLE = {
+    "rate_limit_error",
+    "server_error",  # 所有 5xx
+}
+
+RETRY_AFTER_HEADER = "Retry-After"  # 服务端可能建议等待时间
+
+def call_with_retry(func, max_retries=5):
+    for attempt in range(max_retries):
+        try:
+            return func()
+        except APIError as e:
+            if e.error.type not in RETRYABLE:
+                raise  # 不重试 4xx
+
+            # 优先用服务端 Retry-After
+            wait = float(e.response.headers.get(RETRY_AFTER_HEADER, 0))
+            if wait == 0:
+                # 指数退避：1, 2, 4, 8, 16 秒 + jitter
+                wait = (2 ** attempt) + random.random()
+
+            time.sleep(wait)
+
+    raise Exception(f"Failed after {max_retries} retries")
+```
+
+## 用户面向的错误文案
+
+永远不要给最终用户展示原始 `error.message`。映射到友好文案：
+
+| API 错误类型 | 用户文案 |
+|---|---|
+| `authentication_error` | "请重新登录后再试。" |
+| `permission_error` | "您的套餐暂不支持此功能。[升级 →]" |
+| `rate_limit_error` | "请求过于频繁，请稍候再试。" |
+| `server_error` | "服务暂时异常，请稍候再试。" |
+| `invalid_request_error`（通用） | "请求处理失败，请稍候再试。" |
+| `content_policy_violation` | "消息被内容过滤拦截，请修改后重试。" |

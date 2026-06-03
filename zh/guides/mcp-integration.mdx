@@ -1,0 +1,142 @@
+---
+title: "MCP 集成"
+description: "通过 Model Context Protocol 让 API 文档可被 AI 读取"
+---
+
+Model Context Protocol（MCP）让 AI 编码代理（Cursor、Claude Code、
+Windsurf）直接读取和搜索你的文档。本页说明如何启用 Mintlify 的
+MCP server，以及你的代理会看到什么。
+
+## 什么是 MCP？
+
+MCP 是一种标准协议，用来向 AI 代理暴露工具和数据。Mintlify 提供
+两个 MCP server：
+
+| Server | 工具 | 何时用 |
+|---|---|---|
+| **Search MCP** | `searchDocumentation`、`getPageContent` | 代理需要找到现有文档再写新的 |
+| **Admin MCP** | `createPage`、`updatePage`、`triggerDeployment` 等 | 代理应该能直接编辑文档 |
+
+## 启用 Search MCP（推荐）
+
+1. 打开 [Mintlify Dashboard](https://dashboard.mintlify.com)
+2. 选择你的项目
+3. 进入 **Settings** → **AI** → **MCP**
+4. 复制 **Search MCP** server URL
+   （格式：`https://docs.mintlify.com/.well-known/mcp/your-project-id`）
+5. 加到你 IDE 的 MCP 配置
+
+### Cursor
+
+`~/.cursor/mcp.json`：
+
+```json
+{
+  "mcpServers": {
+    "mintlify-search": {
+      "url": "https://docs.mintlify.com/.well-known/mcp/your-project-id"
+    }
+  }
+}
+```
+
+### Claude Code
+
+`~/.claude/mcp.json`（或项目级 `.mcp.json`）：
+
+```json
+{
+  "mcpServers": {
+    "mintlify-search": {
+      "url": "https://docs.mintlify.com/.well-known/mcp/your-project-id"
+    }
+  }
+}
+```
+
+### Windsurf
+
+`~/.codeium/windsurf/mcp_config.json`：
+
+```json
+{
+  "mcpServers": {
+    "mintlify-search": {
+      "url": "https://docs.mintlify.com/.well-known/mcp/your-project-id"
+    }
+  }
+}
+```
+
+## 你的代理能用 Search MCP 做什么
+
+启用后，代理能访问两个工具：
+
+### `searchDocumentation(query)`
+
+跨所有文档（MDX 页面 + OpenAPI）搜索。返回带页面标题、路径和内容
+摘要的排名结果。
+
+代理里用法示例：
+> "搜索文档中流式响应格式，并在流式指南里加一个 TypeScript 示例。"
+
+### `getPageContent(path)`
+
+获取特定页面的完整内容。在搜索结果后用，以获取完整上下文。
+
+示例：
+> "获取 `/api-reference/chat` 的内容，验证 response_format 参数
+> 文档的准确性。"
+
+## 启用 Admin MCP（高级，可选）
+
+Admin MCP 给代理**写权限**访问文档。功能强大但有风险 — 代理可以
+更新内容、触发部署、弄坏你的站点。
+
+只在以下情况启用：
+- 完全信任代理（如你在 CI 里控制它）
+- 有 review/approval 流程
+- 接受错误可能破坏线上站点
+
+配置同 Search MCP，但用 **Admin MCP** URL。
+
+<Warning>
+  Admin MCP 能触发生产部署。即使代理通过 Admin MCP 推送了修改，
+  也始终要 review PR。
+</Warning>
+
+## `llms.txt` 和 `skill.md`（自动）
+
+Mintlify **自动生成**两个 AI 友好的文件在你的文档域名下：
+
+- `https://inbllc.mintlify.app/llms.txt` — 所有文档的索引
+  （纯文本，类似 sitemap）
+- `https://inbllc.mintlify.app/llms-full.txt` — 每个页面的完整内容拼接
+- `https://inbllc.mintlify.app/.well-known/skill.md` — 给代理看的
+  skill 描述，让它们理解你的 API 表面
+
+启用这些文件**不需要任何操作**。Claude Code、ChatGPT、Cursor
+等代理知道去找它们。
+
+## 最佳实践
+
+### 别让代理猜 — 先搜索
+
+让代理写文档时，prompt 加前缀：
+
+> 在写任何东西之前，先搜索文档看这个主题是否已经覆盖。
+> 如果有，更新现有页面而不是创建新页面。
+
+这样能避免重复页面和内容漂移。
+
+### 用 Admin MCP 做批量编辑
+
+对于大规模更新（如"把 `api_key` 全部改成 `apiKey`"），Admin MCP
+比手动 20 次编辑更高效。但始终要 review 产生的 commit diff。
+
+### 和 AGENTS.md 配合
+
+仓库根的 `AGENTS.md` 告诉代理你的**编辑**约定。MCP 告诉它
+你的**内容**。两个都使用 — 互相补充。
+
+参见：[AGENTS.md on GitHub](https://github.com/yzlltyyh/infinityblue-api-docs/blob/main/AGENTS.md)

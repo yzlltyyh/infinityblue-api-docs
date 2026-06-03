@@ -1,0 +1,151 @@
+---
+title: "MCP integration"
+description: "Make your API documentation agent-readable via Model Context Protocol"
+---
+
+The Model Context Protocol (MCP) lets AI coding agents
+(Cursor, Claude Code, Windsurf) directly read and search your
+documentation. This page explains how to enable Mintlify's MCP
+servers and what your agents will see.
+
+## What is MCP?
+
+MCP is a standard protocol for exposing tools and data to AI agents.
+Mintlify provides two MCP servers:
+
+| Server | Tools | Use when |
+|---|---|---|
+| **Search MCP** | `searchDocumentation`, `getPageContent` | Agent needs to find existing docs before writing new ones |
+| **Admin MCP** | `createPage`, `updatePage`, `triggerDeployment`, etc. | Agent should be able to edit docs directly |
+
+## Enable Search MCP (recommended)
+
+1. Go to [Mintlify Dashboard](https://dashboard.mintlify.com)
+2. Select your project
+3. Go to **Settings** → **AI** → **MCP**
+4. Copy the **Search MCP** server URL
+   (format: `https://docs.mintlify.com/.well-known/mcp/your-project-id`)
+5. Add to your IDE's MCP config
+
+### Cursor
+
+`~/.cursor/mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "mintlify-search": {
+      "url": "https://docs.mintlify.com/.well-known/mcp/your-project-id"
+    }
+  }
+}
+```
+
+### Claude Code
+
+`~/.claude/mcp.json` (or project-level `.mcp.json`):
+
+```json
+{
+  "mcpServers": {
+    "mintlify-search": {
+      "url": "https://docs.mintlify.com/.well-known/mcp/your-project-id"
+    }
+  }
+}
+```
+
+### Windsurf
+
+`~/.codeium/windsurf/mcp_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "mintlify-search": {
+      "url": "https://docs.mintlify.com/.well-known/mcp/your-project-id"
+    }
+  }
+}
+```
+
+## What your agent can do with Search MCP
+
+Once enabled, your agent has access to two tools:
+
+### `searchDocumentation(query)`
+
+Search across all your docs (MDX pages + OpenAPI). Returns ranked
+results with page titles, paths, and content snippets.
+
+Example usage in agent:
+> "Search the docs for the streaming response format and add a
+> TypeScript example to the streaming guide."
+
+### `getPageContent(path)`
+
+Fetch the full content of a specific page. Use after a search
+result to get complete context.
+
+Example:
+> "Fetch the content of `/api-reference/chat` and verify the
+> response_format parameter documentation is accurate."
+
+## Enable Admin MCP (advanced, optional)
+
+The Admin MCP gives agents **write access** to your docs. Powerful
+but risky — agents can update content, trigger deployments, or
+break your site.
+
+Only enable if you:
+- Trust the agent completely (e.g. you control the agent in CI)
+- Have review/approval workflows
+- Accept that mistakes can break your live site
+
+Setup is the same as Search MCP but use the **Admin MCP** URL.
+
+<Warning>
+  Admin MCP can trigger production deployments. Always review
+  PRs even if the agent pushed via Admin MCP.
+</Warning>
+
+## `llms.txt` and `skill.md` (automatic)
+
+Mintlify **automatically generates** two AI-friendly files at your
+docs domain:
+
+- `https://inbllc.mintlify.app/llms.txt` — index of all your docs
+  (like a sitemap, in plain text)
+- `https://inbllc.mintlify.app/llms-full.txt` — full content of
+  every page concatenated
+- `https://inbllc.mintlify.app/.well-known/skill.md` — a skill
+  description for agents to understand your API surface
+
+You don't need to do anything to enable these. Agents like Claude
+Code, ChatGPT, and Cursor know to look for them.
+
+## Best practices
+
+### Don't make agents guess — search first
+
+When asking an agent to write docs, prefix the prompt with:
+
+> Before writing anything, search the documentation to see if this
+> topic is already covered. If yes, update the existing page
+> rather than creating a new one.
+
+This prevents duplicate pages and content drift.
+
+### Use the Admin MCP for bulk edits
+
+For mass updates (e.g. "rename `api_key` to `apiKey` everywhere"),
+Admin MCP is more efficient than 20 manual edits. But always
+review the diff in the resulting commit.
+
+### Combine with AGENTS.md
+
+Your `AGENTS.md` (in the repo root) tells agents about your
+**editing** conventions. MCP tells them about your **content**.
+Use both — they complement each other.
+
+See: [AGENTS.md on GitHub](https://github.com/yzlltyyh/infinityblue-api-docs/blob/main/AGENTS.md)

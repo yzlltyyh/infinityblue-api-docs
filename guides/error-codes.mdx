@@ -1,0 +1,156 @@
+---
+title: "Error code reference"
+description: "Complete list of error codes and how to handle them"
+---
+
+Every error response has a structured body:
+
+```json
+{
+  "error": {
+    "message": "Human-readable description",
+    "type": "invalid_request_error",
+    "code": "invalid_parameter",
+    "param": "temperature"
+  }
+}
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `error.message` | string | Human-readable. Safe to log. **Don't** display raw to end users. |
+| `error.type` | string | One of six categories. Use this for top-level branching. |
+| `error.code` | string\|null | Machine-readable. Use this for fine-grained handling. |
+| `error.param` | string\|null | Which parameter caused the error. |
+
+## Error categories
+
+| Type | HTTP | When | Action |
+|---|---|---|---|
+| `invalid_request_error` | 400 | Malformed body, missing fields, bad values | Fix the request; do not retry without changes |
+| `authentication_error` | 401 | Missing/invalid/expired API key | Check `Authorization` header; re-auth |
+| `permission_error` | 403 | Key lacks scope or model not on plan | Upgrade plan or use different key |
+| `not_found_error` | 404 | Endpoint or resource doesn't exist | Check URL and IDs |
+| `rate_limit_error` | 429 | Hit rate limit | Wait + exponential backoff |
+| `server_error` | 500+ | Gateway or upstream provider failed | Retry with backoff; report if persistent |
+
+## Complete code list
+
+### `invalid_request_error` (400)
+
+| Code | Meaning | Fix |
+|---|---|---|
+| `invalid_parameter` | Field has bad value (out of range, wrong type, etc.) | Check `error.param` for which field; consult API reference for valid values |
+| `missing_required_parameter` | Required field is absent | Add the field indicated by `error.param` |
+| `context_length_exceeded` | Input + `max_tokens` > model's context window | Reduce input or split into chunks; or use a model with larger context |
+| `invalid_image` | Image data malformed (corrupted, wrong format, too small) | Verify the image is valid PNG/JPEG/WEBP, < 20MB |
+| `invalid_audio` | Audio data malformed | Verify audio is valid MP3/WAV, < 25MB |
+| `invalid_model` | Model ID is unknown or unavailable | Check `/v1/models` for available models |
+| `invalid_request_body` | JSON is malformed | Parse error details; check for trailing commas, unescaped quotes |
+| `content_policy_violation` | Prompt blocked by content filter | Rephrase the prompt; do not retry with the same input |
+| `unsupported_parameter` | Parameter is invalid for this model | Check the model's docs in `/v1/models` |
+| `tool_call_not_supported` | Model doesn't support function calling | Use a different model or remove the `tools` field |
+| `prompt_too_long` | Input exceeds model context window | Use shorter prompt or chunk |
+
+### `authentication_error` (401)
+
+| Code | Meaning | Fix |
+|---|---|---|
+| `invalid_api_key` | API key is wrong, revoked, or expired | Generate a new key in the dashboard |
+| `missing_authorization` | No `Authorization` header sent | Add the header |
+| `expired_api_key` | Key was active but has since been rotated | Generate a new key |
+
+### `permission_error` (403)
+
+| Code | Meaning | Fix |
+|---|---|---|
+| `model_not_accessible` | API key's plan doesn't include this model | Upgrade plan, or use a model on your current plan |
+| `region_not_available` | Model not available in your region | Use a different model or contact support |
+| `organization_verification_required` | Org-level verification needed (some models) | Complete verification in dashboard |
+| `api_key_disabled` | Key was disabled (e.g. for abuse) | Contact support |
+
+### `not_found_error` (404)
+
+| Code | Meaning | Fix |
+|---|---|---|
+| `resource_not_found` | Resource ID doesn't exist (e.g. video task ID) | Check the ID; it may have expired or been deleted |
+| `model_not_found` | Same as `invalid_model` but in different category | See above |
+| `endpoint_not_found` | URL path is wrong | Check the API reference for valid paths |
+
+### `rate_limit_error` (429)
+
+| Code | Meaning | Fix |
+|---|---|---|
+| `rate_limit_exceeded` | Hit requests/min limit | Wait + retry with backoff |
+| `tokens_per_minute_exceeded` | Hit tokens/min limit | Reduce `max_tokens` or batch requests |
+| `concurrent_requests_exceeded` | Hit concurrent connection limit | Queue requests; add a small delay between them |
+| `insufficient_quota` | Account is out of credits | Top up the account |
+
+The 429 response also includes rate-limit headers:
+
+| Header | Meaning |
+|---|---|
+| `X-RateLimit-Limit-Requests` | Total requests allowed per window |
+| `X-RateLimit-Remaining-Requests` | Requests remaining in current window |
+| `X-RateLimit-Reset-Requests` | Unix timestamp when window resets |
+| `X-RateLimit-Limit-Tokens` | Total tokens allowed per window |
+| `X-RateLimit-Remaining-Tokens` | Tokens remaining in current window |
+
+**Read these headers proactively** to avoid hitting the limit in
+the first place. When `X-RateLimit-Remaining-Requests < 10%`,
+start throttling.
+
+### `server_error` (500+)
+
+| Code | Meaning | Fix |
+|---|---|---|
+| `upstream_error` | The model provider (OpenAI, Anthropic, etc.) returned an error | Retry with backoff; if persistent, try a different model |
+| `upstream_timeout` | Upstream didn't respond within timeout | Retry; consider using a faster model |
+| `internal_error` | Our gateway encountered an unexpected error | Report to support with request ID |
+| `service_unavailable` | Upstream provider is down | Retry in a few minutes |
+
+## Retry strategy
+
+```python
+import random
+import time
+
+RETRYABLE = {
+    "rate_limit_error",
+    "server_error",  # all 5xx
+}
+
+RETRY_AFTER_HEADER = "Retry-After"  # server may suggest wait time
+
+def call_with_retry(func, max_retries=5):
+    for attempt in range(max_retries):
+        try:
+            return func()
+        except APIError as e:
+            if e.error.type not in RETRYABLE:
+                raise  # don't retry 4xx
+
+            # Respect server's Retry-After if provided
+            wait = float(e.response.headers.get(RETRY_AFTER_HEADER, 0))
+            if wait == 0:
+                # Exponential backoff: 1, 2, 4, 8, 16 seconds + jitter
+                wait = (2 ** attempt) + random.random()
+
+            time.sleep(wait)
+
+    raise Exception(f"Failed after {max_retries} retries")
+```
+
+## User-facing error messages
+
+Never expose raw `error.message` to end users. Map to friendly
+copy:
+
+| API error type | User message |
+|---|---|
+| `authentication_error` | "Please sign in again to continue." |
+| `permission_error` | "This feature isn't available on your plan. [Upgrade →]" |
+| `rate_limit_error` | "You're sending requests too quickly. Please wait a moment." |
+| `server_error` | "Something went wrong on our end. Please try again in a moment." |
+| `invalid_request_error` (general) | "We couldn't process that request. Please try again." |
+| `content_policy_violation` | "Your message was blocked by our content filter. Please rephrase." |

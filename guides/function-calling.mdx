@@ -1,0 +1,237 @@
+---
+title: "Function calling best practices"
+description: "Patterns for reliable, low-cost tool use"
+---
+
+Function calling (a.k.a. tool use) lets the model invoke your
+functions. Done well, it's a force multiplier. Done poorly, it
+wastes tokens, confuses the model, and produces broken flows.
+
+## Anatomy of a tool call
+
+```json
+{
+  "model": "gpt-4o",
+  "messages": [...],
+  "tools": [
+    {
+      "type": "function",
+      "function": {
+        "name": "get_weather",
+        "description": "Get the current weather for a city",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "location": { "type": "string", "description": "City name, e.g. 'Paris' or '北京市'" },
+            "unit": { "type": "string", "enum": ["celsius", "fahrenheit"], "default": "celsius" }
+          },
+          "required": ["location"]
+        }
+      }
+    }
+  ],
+  "tool_choice": "auto"
+}
+```
+
+The model returns:
+
+```json
+{
+  "choices": [{
+    "message": {
+      "role": "assistant",
+      "tool_calls": [{
+        "id": "call_abc123",
+        "type": "function",
+        "function": {
+          "name": "get_weather",
+          "arguments": "{\"location\": \"Paris\", \"unit\": \"celsius\"}"
+        }
+      }]
+    }
+  }]
+}
+```
+
+You run the function, send the result back as a `tool` message, and
+the model continues.
+
+## Best practices
+
+### Write descriptions as if for a smart intern
+
+The model uses the `description` to decide **when** to call the
+function. Bad description = wrong calls.
+
+**Bad**:
+```json
+"description": "Weather function"
+```
+
+**Good**:
+```json
+"description": "Get the current weather for a city. Returns temperature, conditions, and wind. Use when the user asks about weather, temperature, or whether to bring an umbrella."
+```
+
+### Strict JSON schema catches errors early
+
+For OpenAI, set `strict: true` to enforce that the model output
+exactly matches your schema:
+
+```json
+{
+  "type": "function",
+  "function": {
+    "name": "get_weather",
+    "description": "...",
+    "strict": true,
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "location": { "type": "string" },
+        "unit": { "type": "string", "enum": ["celsius", "fahrenheit"] }
+      },
+      "required": ["location", "unit"],
+      "additionalProperties": false
+    }
+  }
+}
+```
+
+Without `strict`, the model may invent fields or skip required ones.
+
+### Use `tool_choice` to control behavior
+
+| Value | When |
+|---|---|
+| `"auto"` (default) | Model decides whether to call a tool |
+| `"none"` | Force no tool call (pure text response) |
+| `"required"` | Force at least one tool call |
+| `{"type": "function", "function": {"name": "X"}}` | Force a specific tool |
+
+For workflows where you **always** want a specific tool, force it
+instead of hoping the model picks it.
+
+### Validate arguments before executing
+
+Never trust model-generated arguments blindly. The model can produce:
+
+```json
+{"location": "DROP TABLE users; --"}  // SQL injection-shaped
+{"location": ""}                       // empty string
+{"location": null}                     // null when required
+```
+
+Always validate against your schema server-side before executing
+the underlying function.
+
+### Keep tool count under 20
+
+Each tool adds ~50-200 tokens to the prompt (description +
+parameters). Beyond ~20 tools:
+- Cost grows linearly
+- Model gets confused about which tool to use
+- Latency increases
+
+If you need many tools, group them by domain and only send the
+relevant group per request (e.g. "calendar tools" vs. "finance
+tools").
+
+### Parallelize independent calls
+
+If the model needs to call `get_weather("Paris")` and
+`get_weather("Tokyo")`, the model can return both tool calls in
+one response. Execute them in parallel — total latency = max, not
+sum.
+
+```python
+import asyncio
+from openai import OpenAI
+
+client = OpenAI(...)
+
+response = client.chat.completions.create(
+    model="gpt-4o",
+    messages=[...],
+    tools=[...]
+)
+
+# response.choices[0].message.tool_calls may have multiple calls
+tool_calls = response.choices[0].message.tool_calls
+
+# Execute all in parallel
+results = await asyncio.gather(*[
+    execute_tool(call) for call in tool_calls
+])
+
+# Send all results back in one message
+messages.append({
+    "role": "tool",
+    "tool_call_id": results[i].id,
+    "content": json.dumps(results[i].result)
+})
+for i, call in enumerate(tool_calls):
+    messages.append({
+        "role": "tool",
+        "tool_call_id": call.id,
+        "content": json.dumps(results[i])
+    })
+
+# Continue the conversation
+next_response = client.chat.completions.create(
+    model="gpt-4o",
+    messages=messages,
+    tools=[...]
+)
+```
+
+### Cap recursion depth
+
+The model can call tools, get results, call more tools, get more
+results, etc. Without a cap, you can hit infinite loops or run
+away on token spend.
+
+```python
+MAX_TOOL_ITERATIONS = 5
+for i in range(MAX_TOOL_ITERATIONS):
+    response = client.chat.completions.create(...)
+    if not response.choices[0].message.tool_calls:
+        break
+    # execute and append
+```
+
+## Common pitfalls
+
+<AccordionGroup>
+  <Accordion title="Model calls the tool with bad JSON">
+    The `arguments` field is a string that needs `json.loads()`.
+    Sometimes the model produces invalid JSON, especially with
+    complex schemas. Wrap in try/except and either retry or
+    ask the model to fix it:
+
+    ```python
+    try:
+        args = json.loads(call.function.arguments)
+    except json.JSONDecodeError:
+        messages.append({
+            "role": "tool",
+            "tool_call_id": call.id,
+            "content": "Error: invalid JSON. Please reformat."
+        })
+        # Ask the model to retry
+    ```
+  </Accordion>
+
+  <Accordion title="Model hallucinates a tool that doesn't exist">
+    Strict mode helps, but model can still drift. Validate
+    `function.name` against your known tool registry before
+    dispatching.
+  </Accordion>
+
+  <Accordion title="Model refuses to call a tool when it should">
+    Description too vague. Add more detail about when the tool
+    is the right choice. Include example user inputs that
+    should trigger the call.
+  </Accordion>
+</AccordionGroup>

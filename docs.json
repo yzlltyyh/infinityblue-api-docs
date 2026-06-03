@@ -41,7 +41,13 @@
                 "pages": [
                   "zh/guides/model-selection",
                   "zh/guides/streaming",
-                  "zh/guides/multimodal-input"
+                  "zh/guides/multimodal-input",
+                  "zh/guides/cost-optimization",
+                  "zh/guides/function-calling",
+                  "zh/guides/error-codes",
+                  "zh/guides/webhook-payloads",
+                  "zh/guides/apifox-sandbox",
+                  "zh/guides/mcp-integration"
                 ]
               }
             ]
@@ -78,7 +84,13 @@
                 "pages": [
                   "guides/model-selection",
                   "guides/streaming",
-                  "guides/multimodal-input"
+                  "guides/multimodal-input",
+                  "guides/cost-optimization",
+                  "guides/function-calling",
+                  "guides/error-codes",
+                  "guides/webhook-payloads",
+                  "guides/apifox-sandbox",
+                  "guides/mcp-integration"
                 ]
               }
             ]

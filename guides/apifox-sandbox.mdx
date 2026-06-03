@@ -1,0 +1,130 @@
+---
+title: "Apifox sandbox setup"
+description: "Configure Apifox as a developer testing playground that auto-syncs from this docs repo"
+---
+
+The Mintlify site gives you a public Try-it playground, but Apifox offers
+richer testing features: environment variables, mock data, test scenarios,
+team collaboration. This page explains how to wire Apifox so it auto-syncs
+from this documentation repo's OpenAPI definition.
+
+## Architecture
+
+```
+┌─────────────────────────────────────┐
+│ GitHub: yzlltyyh/infinityblue-api-docs │
+│ openapi/openapi.bundled.yaml (SSOT)   │
+└──────────┬───────────────────────┘
+           │ Apifox "scheduled import" pulls
+           │ from the Mintlify-deployed URL
+           ↓
+┌─────────────────────────────────────┐
+│ Apifox project (auto-refreshed)     │
+│ Public share link                    │
+│ apifox.yourgateway.com  (optional)   │
+└─────────────────────────────────────┘
+```
+
+Apifox becomes a **consumer** of our OpenAPI. GitHub is the source of
+truth; Apifox refreshes on a schedule. No CI, no tokens, no manual
+re-exports.
+
+## Setup steps
+
+<Steps>
+  <Step title="Create the Apifox project">
+    1. Sign in to [apifox.com](https://apifox.com)
+    2. Click **New Project** → name it `InfinityBlue API`
+    3. Choose **OpenAPI / Swagger** as the project type
+    4. Skip the import-on-create wizard (we'll set up scheduled import next)
+  </Step>
+
+  <Step title="Configure scheduled import (the key part)">
+    1. In your new project, go to **Project Settings** → **Data Management** → **External Data Sources**
+    2. Click **Add Data Source**
+    3. Fill in:
+       - **Name**: `InfinityBlue API Docs (Git)`
+       - **Type**: `URL`
+       - **URL**: `https://inbllc.mintlify.app/openapi.yaml`
+         - After you set up a custom domain, switch this to `https://docs.yourapi.com/openapi.yaml`
+       - **Format**: `OpenAPI 3.0 / 3.1`
+       - **Sync frequency**: every 1 hour
+       - **Import behavior**: `Overwrite` (replace existing endpoints with new ones)
+    4. Click **Save**
+    5. Click **Sync Now** to trigger the first import
+  </Step>
+
+  <Step title="Verify the import">
+    After sync:
+    - Go to the project overview
+    - You should see all 13 endpoints under their respective folders (chat, images, videos, models, etc.)
+    - Check that request/response schemas are correctly imported
+    - Check that `bearerAuth` is recognized (Apifox should auto-detect it)
+  </Step>
+
+  <Step title="Set up the auth environment">
+    1. Go to **Environments** (left sidebar)
+    2. You'll see `Production` (default) and possibly `Dev`
+    3. Click on **Production** → **Auth** tab
+    4. Set **Type** = `Bearer Token`
+    5. Leave the value blank — users will fill in their own key when testing
+    6. Click **Save**
+  </Step>
+
+  <Step title="Enable public share (optional)">
+    1. Go to **Share** (top right) → **Online Share**
+    2. Toggle on **Enable share**
+    3. Set visibility:
+       - **Public** — anyone with the link can test (use only for public docs)
+       - **Password protected** — share with a team
+    4. Copy the public URL — this is your `apifox.yourgateway.com` style link
+    5. (Optional) Add this link to your Mintlify `api-reference/*.mdx` files
+       as an "Open in Apifox" button so developers can switch from docs
+       to interactive testing
+  </Step>
+
+  <Step title="Document the public URL (so devs know it exists)">
+    Add a line in your team's onboarding docs or your Mintlify footer:
+
+    > **Try it in Apifox**: [https://app.apifox.com/link/your-project-id](https://app.apifox.com/link/your-project-id)
+  </Step>
+</Steps>
+
+## Maintenance
+
+The scheduled import handles all the synchronization. After a `git push` to
+the `main` branch:
+
+1. Mintlify rebuilds within 1-2 minutes
+2. The bundled OpenAPI at `https://inbllc.mintlify.app/openapi.yaml` updates
+3. Next Apifox sync (within 1 hour) picks up the changes
+
+If you need an **immediate sync** after a critical doc update:
+- Apifox project → **Data Management** → **External Data Sources** → click **Sync Now**
+
+## Common questions
+
+<AccordionGroup>
+  <Accordion title="Why don't I just edit Apifox directly and push to Git?">
+    That was the old NewAPI workflow. It splits the source of truth between
+    Apifox UI edits and Git commits, with a one-way push from Apifox to Git.
+    Easy to lose track of which is canonical.
+
+    This workflow is **the opposite**: Git is the source of truth, Apifox
+    pulls. Every change goes through your normal Git review process.
+  </Accordion>
+
+  <Accordion title="What if the OpenAPI has errors?">
+    Apifox will fail the import and show an error in the data source
+    history. Fix the OpenAPI in Git, push, wait for Mintlify to redeploy,
+    then click **Sync Now** in Apifox.
+  </Accordion>
+
+  <Accordion title="What about local development?">
+    For local dev, you don't need Apifox. Just use:
+    - `mint dev` — Mintlify local preview with live OpenAPI reference
+    - `curl` + the bundled OpenAPI as a contract reference
+    - Or import `openapi/openapi.bundled.yaml` directly into your local
+      Postman / Insomnia
+  </Accordion>
+</AccordionGroup>

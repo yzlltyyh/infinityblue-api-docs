@@ -74,17 +74,6 @@ Most production systems optimize a weighted blend of the three. A classification
 | `deepseek-v4-pro` | Multi-step reasoning, planning, hard math | Advanced reasoning; good alternative to heavy frontier models |
 | `deepseek-v4-flash` | Cost-sensitive reasoning tasks | Lighter-weight DeepSeek; faster and cheaper than Pro |
 
-## Common model mappings
-
-If you are migrating from a standard OpenAI setup, use these equivalents:
-
-| OpenAI model | InfinityBlue equivalent |
-| --- | --- |
-| `gpt-4o` | `gpt-5.4` |
-| `gpt-4o-mini` | `gpt-5.4-mini` |
-| `o3` (reasoning) | `deepseek-v4-pro` |
-| `claude-sonnet-4-5` | `gemini-3.1-pro-preview` |
-
 ## Routing strategies
 
 A single application often needs more than one model. Common patterns:

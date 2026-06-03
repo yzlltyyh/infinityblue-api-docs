@@ -72,7 +72,6 @@ paths:
           | Model ID | Notes |
           | --- | --- |
           | `gpt-image-2` | GPT Image 2 — flexible sizing, transparent background, streaming partial images |
-          | `gpt-image-2-2026-04-21` | Snapshot version of GPT Image 2 |
 
           ## Size options (`gpt-image-2`)
 
@@ -543,8 +542,7 @@ components:
         model:
           type: string
           description: |
-            Model ID to use for image generation. For `gpt-image-2`, pass
-            `gpt-image-2` or the snapshot version `gpt-image-2-2026-04-21`.
+            Model ID to use for image generation. Pass `gpt-image-2`.
           examples:
             - gpt-image-2
         prompt:
@@ -579,9 +577,8 @@ components:
           type: string
           description: |
             Background setting for the generated image. For `gpt-image-2`,
-            defaults to `auto`; supports `opaque` or `auto`. For transparent
-            backgrounds, use `gpt-image-1` with `transparent` and set
-            `output_format` to `png` or `webp`.
+            defaults to `auto`; supports `transparent` (requires `output_format`
+            `png` or `webp`), `opaque`, or `auto`.
           enum:
             - opaque
             - transparent

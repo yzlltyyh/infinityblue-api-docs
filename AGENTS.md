@@ -91,12 +91,22 @@ distinct `directory` per **(language, category)**: `zh-chat`, `en-chat`,
 
 - **Real models only.** This relay's actual models live at
   https://api.getinfinityblue.com/pricing. Use real IDs in examples:
-  chat `gpt-5.4` / `gpt-5.4-mini` / `gpt-5.5` / `gpt-5.3-codex` /
-  `gemini-3.1-pro-preview` / `gemini-2.5-pro` / `deepseek-v4-pro`;
-  image `gpt-image-2` / `nanobanana` / `nanobanana_pro` / `nanobanana_2`;
-  video `doubao-seedance-2-0-260128` / `veo_3_1` / `kling-v2-5-turbo`.
-  **Never** use `gpt-4o`, `dall-e-*`, `whisper-*`, `o3`, `claude-*`,
-  `text-embedding-*`, `sora-*` — the relay does not offer them.
+  The **pricing page is the authoritative list** — any model ID shown
+  there is valid and may be used. Currently available:
+  - chat (OpenAI-compatible): `gpt-5.4` / `gpt-5.4-mini` / `gpt-5.5` /
+    `gpt-5.3-codex` / `gpt-5` / `gpt-5.1` / `gpt-5.2`
+  - chat (DeepSeek): `deepseek-v4-pro` / `deepseek-v4-flash`
+  - chat & multimodal (Gemini, work via both `/v1/chat/completions` and
+    `/v1beta/models/*`): `gemini-3.1-pro-preview` / `gemini-2.5-pro` /
+    `gemini-2.5-flash` / `gemini-3-flash-preview` /
+    `gemini-3.1-flash-lite-preview` / `gemini-3.5-flash`
+  - image: `gpt-image-2` / `nanobanana` / `nanobanana_pro` / `nanobanana_2`
+  - video: `doubao-seedance-2-0-260128` / `doubao-seedance-2-0-fast-260128` /
+    `veo_3_1` (and `-fast` / `-4K` variants) / `kling-v2-5-turbo` /
+    `kling-v2-1-master`
+  **Never** invent or use a model that is NOT on the pricing page — e.g.
+  `gpt-4o`, `dall-e-*`, `whisper-*`, `o3`, `claude-*`, `text-embedding-*`,
+  `sora-*`. The relay does not offer these.
 - **Real base URL** everywhere: `https://api.getinfinityblue.com`.
 - **No hard-coded prices.** Pricing changes often; link to the pricing page.
 - **OpenAPI 3.1.0.** No `nullable: true` → use `type: [string, "null"]`.

@@ -51,11 +51,6 @@ paths:
         兼容 OpenAI 官方 SDK——把 base URL 指向 InfinityBlue 后可直接调用
         `client.models.list()`，无需修改任何代码。
 
-        接口根据请求头自动识别响应格式：
-        - 携带 `x-api-key` 和 `anthropic-version` 时返回 Anthropic 格式
-        - 携带 `x-goog-api-key` 或查询参数 `key` 时返回 Gemini 格式
-        - 其他情况返回 OpenAI 格式（本接口文档描述此场景）
-
         返回的模型列表为动态数据，随 InfinityBlue 接入新模型实时更新。
       x-mint:
         metadata:
@@ -94,39 +89,6 @@ paths:
               print(model.id)
           ```
 
-          ## 响应格式说明
-
-          端点根据请求头自动切换响应格式，无需显式指定。
-          通常使用 `Authorization: Bearer` 认证时即返回 OpenAI 格式。
-      parameters:
-        - name: key
-          in: query
-          description: Google API Key（携带此参数时返回 Gemini 格式，可选）
-          required: false
-          schema:
-            type: string
-        - name: x-api-key
-          in: header
-          description: Anthropic API Key（携带此头时返回 Anthropic 格式，可选）
-          required: false
-          schema:
-            type: string
-        - name: anthropic-version
-          in: header
-          description: |
-            Anthropic API 版本，与 `x-api-key` 配合使用（可选）。
-            示例值：`2023-06-01`
-          required: false
-          schema:
-            type: string
-            examples:
-              - "2023-06-01"
-        - name: x-goog-api-key
-          in: header
-          description: Google API Key（携带此头时返回 Gemini 格式，可选）
-          required: false
-          schema:
-            type: string
       responses:
         "200":
           description: 成功返回模型列表
@@ -444,7 +406,7 @@ components:
               type: string
               description: 错误信息。
               examples:
-                - Invalid API key provided.
+                - 无效的 API Key。
             type:
               type: string
               description: 错误类型。

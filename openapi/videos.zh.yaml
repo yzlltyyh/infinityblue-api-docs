@@ -232,6 +232,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: 任务不存在、尚未完成或内容已过期
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "429":
           description: 请求频率超限
           content:
@@ -476,6 +482,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: 任务不存在、尚未完成或内容已过期
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "429":
           description: 请求频率超限
           content:
@@ -550,6 +562,12 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
         "401":
           description: API Key 无效或缺失
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: 任务不存在、尚未完成或内容已过期
           content:
             application/json:
               schema:
@@ -1155,7 +1173,7 @@ components:
               type: string
               description: 错误信息。
               examples:
-                - Invalid duration. Supported range is 4 to 15 seconds.
+                - 无效的时长。支持的范围为 4 到 15 秒。
             type:
               type: string
               description: 错误类型。

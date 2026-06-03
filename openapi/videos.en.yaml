@@ -238,6 +238,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Task not found, not completed yet, or content already expired
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "429":
           description: Rate limit exceeded
           content:
@@ -489,6 +495,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Task not found, not completed yet, or content already expired
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "429":
           description: Rate limit exceeded
           content:
@@ -566,6 +578,12 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
         "401":
           description: Invalid or missing API key
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Task not found, not completed yet, or content already expired
           content:
             application/json:
               schema:

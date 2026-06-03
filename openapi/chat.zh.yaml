@@ -829,7 +829,6 @@ components:
       type: object
       required:
         - role
-        - content
       properties:
         role:
           type: string
@@ -1067,7 +1066,7 @@ components:
               type: string
               description: 错误信息。
               examples:
-                - Invalid duration. Supported range is 4 to 15 seconds.
+                - 无效的时长。支持的范围为 4 到 15 秒。
             type:
               type: string
               description: 错误类型。

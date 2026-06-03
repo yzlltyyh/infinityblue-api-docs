@@ -67,7 +67,6 @@ paths:
           | 模型 ID | 说明 |
           | --- | --- |
           | `gpt-image-2` | GPT Image 2，支持灵活尺寸、透明背景、流式部分图 |
-          | `gpt-image-2-2026-04-21` | GPT Image 2 快照版本 |
 
           ## 尺寸说明（`gpt-image-2`）
 
@@ -524,8 +523,7 @@ components:
         model:
           type: string
           description: |
-            用于图像生成的模型 ID。对于 `gpt-image-2`，传入 `gpt-image-2`
-            或快照版本 `gpt-image-2-2026-04-21`。
+            用于图像生成的模型 ID，传入 `gpt-image-2`。
           examples:
             - gpt-image-2
         prompt:
@@ -558,8 +556,8 @@ components:
           type: string
           description: |
             生成图像的背景设置。对于 `gpt-image-2`，默认为 `auto`，
-            可选 `opaque`（不透明）或 `auto`。如需透明背景请使用 `gpt-image-1`
-            并设置 `transparent`，同时将 `output_format` 设为 `png` 或 `webp`。
+            可选 `transparent`（透明，需将 `output_format` 设为 `png` 或 `webp`）、
+            `opaque`（不透明）或 `auto`。
           enum:
             - opaque
             - transparent
@@ -1061,7 +1059,7 @@ components:
               type: string
               description: 错误信息。
               examples:
-                - Invalid size. Supported sizes are 1024x1024, 1536x1024, 1024x1536.
+                - 无效的尺寸。支持的尺寸为 1024x1024、1536x1024、1024x1536。
             type:
               type: string
               description: 错误类型。

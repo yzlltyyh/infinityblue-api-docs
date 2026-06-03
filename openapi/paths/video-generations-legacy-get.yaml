@@ -15,6 +15,7 @@ get:
   parameters:
     - name: task_id
       in: path
+      required: true
       schema:
         type: string
   responses:

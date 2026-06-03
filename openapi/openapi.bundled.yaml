@@ -919,6 +919,7 @@ paths:
       parameters:
         - name: task_id
           in: path
+          required: true
           description: The video task ID returned from `POST /v1/videos`
           schema:
             type: string
@@ -1005,6 +1006,7 @@ paths:
       parameters:
         - name: task_id
           in: path
+          required: true
           description: The completed video task ID
           schema:
             type: string
@@ -1094,6 +1096,7 @@ paths:
       parameters:
         - name: task_id
           in: path
+          required: true
           schema:
             type: string
       responses:
@@ -1167,6 +1170,7 @@ paths:
       parameters:
         - name: model
           in: path
+          required: true
           description: Model ID (e.g. `gemini-2.5-pro`, `gemini-2.0-flash`)
           schema:
             type: string

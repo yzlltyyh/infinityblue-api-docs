@@ -14,6 +14,7 @@ get:
   parameters:
     - name: task_id
       in: path
+      required: true
       description: The video task ID returned from `POST /v1/videos`
       schema:
         type: string

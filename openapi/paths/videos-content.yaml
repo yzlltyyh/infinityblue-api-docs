@@ -14,6 +14,7 @@ get:
   parameters:
     - name: task_id
       in: path
+      required: true
       description: The completed video task ID
       schema:
         type: string

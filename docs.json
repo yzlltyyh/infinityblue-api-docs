@@ -10,8 +10,8 @@
   "favicon": "/favicon.svg",
   "navigation": {
     "languages": [
-      { "language": "en", "default": true },
-      { "language": "zh" }
+      { "language": "en", "default": true, "name": "English" },
+      { "language": "cn", "name": "中文" }
     ],
     "tabs": [
       {

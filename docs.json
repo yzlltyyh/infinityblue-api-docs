@@ -28,12 +28,105 @@
                 ]
               },
               {
-                "group": "API 参考",
+                "group": "模型（Models）",
+                "openapi": {
+                  "source": "openapi/models.zh.yaml",
+                  "directory": "zh-models"
+                },
                 "pages": [
-                  "zh/api-reference/chat",
-                  "zh/api-reference/images",
-                  "zh/api-reference/videos",
-                  "zh/api-reference/models"
+                  "GET /v1/models",
+                  "GET /v1beta/models"
+                ]
+              },
+              {
+                "group": "聊天（Chat）",
+                "pages": [
+                  {
+                    "group": "原生 OpenAI 格式",
+                    "openapi": {
+                      "source": "openapi/chat.zh.yaml",
+                      "directory": "zh-chat"
+                    },
+                    "pages": [
+                      "POST /v1/chat/completions",
+                      "POST /v1/responses"
+                    ]
+                  },
+                  {
+                    "group": "原生 Gemini 格式",
+                    "openapi": {
+                      "source": "openapi/chat.zh.yaml",
+                      "directory": "zh-chat"
+                    },
+                    "pages": [
+                      "POST /v1beta/models/{model}:generateContent"
+                    ]
+                  },
+                  {
+                    "group": "原生 Claude 格式",
+                    "openapi": {
+                      "source": "openapi/chat.zh.yaml",
+                      "directory": "zh-chat"
+                    },
+                    "pages": [
+                      "POST /v1/messages"
+                    ]
+                  }
+                ]
+              },
+              {
+                "group": "图像（Images）",
+                "pages": [
+                  {
+                    "group": "原生 OpenAI 格式",
+                    "openapi": {
+                      "source": "openapi/images.zh.yaml",
+                      "directory": "zh-images"
+                    },
+                    "pages": [
+                      "POST /v1/images/generations",
+                      "POST /v1/images/edits"
+                    ]
+                  },
+                  {
+                    "group": "Nano Banana",
+                    "openapi": {
+                      "source": "openapi/images.zh.yaml",
+                      "directory": "zh-images"
+                    },
+                    "pages": [
+                      "POST /v1beta/models/{model}:generateContent",
+                      "POST /v1/chat/completions"
+                    ]
+                  }
+                ]
+              },
+              {
+                "group": "视频（Videos）",
+                "pages": [
+                  {
+                    "group": "Seedance 异步",
+                    "openapi": {
+                      "source": "openapi/videos.zh.yaml",
+                      "directory": "zh-videos"
+                    },
+                    "pages": [
+                      "POST /v1/videos",
+                      "GET /v1/videos/{task_id}",
+                      "GET /v1/videos/{task_id}/content"
+                    ]
+                  },
+                  {
+                    "group": "通用视频接口",
+                    "openapi": {
+                      "source": "openapi/videos.zh.yaml",
+                      "directory": "zh-videos"
+                    },
+                    "pages": [
+                      "POST /v1/video/generations",
+                      "GET /v1/video/generations/{task_id}"
+                    ]
+                  }
                 ]
               },
               {
@@ -41,13 +134,7 @@
                 "pages": [
                   "zh/guides/model-selection",
                   "zh/guides/streaming",
-                  "zh/guides/multimodal-input",
-                  "zh/guides/cost-optimization",
-                  "zh/guides/function-calling",
-                  "zh/guides/error-codes",
-                  "zh/guides/webhook-payloads",
-                  "zh/guides/apifox-sandbox",
-                  "zh/guides/mcp-integration"
+                  "zh/guides/multimodal-input"
                 ]
               }
             ]
@@ -71,12 +158,105 @@
                 ]
               },
               {
-                "group": "API Reference",
+                "group": "Models",
+                "openapi": {
+                  "source": "openapi/models.en.yaml",
+                  "directory": "en-models"
+                },
                 "pages": [
-                  "api-reference/chat",
-                  "api-reference/images",
-                  "api-reference/videos",
-                  "api-reference/models"
+                  "GET /v1/models",
+                  "GET /v1beta/models"
+                ]
+              },
+              {
+                "group": "Chat",
+                "pages": [
+                  {
+                    "group": "OpenAI format",
+                    "openapi": {
+                      "source": "openapi/chat.en.yaml",
+                      "directory": "en-chat"
+                    },
+                    "pages": [
+                      "POST /v1/chat/completions",
+                      "POST /v1/responses"
+                    ]
+                  },
+                  {
+                    "group": "Gemini format",
+                    "openapi": {
+                      "source": "openapi/chat.en.yaml",
+                      "directory": "en-chat"
+                    },
+                    "pages": [
+                      "POST /v1beta/models/{model}:generateContent"
+                    ]
+                  },
+                  {
+                    "group": "Claude format",
+                    "openapi": {
+                      "source": "openapi/chat.en.yaml",
+                      "directory": "en-chat"
+                    },
+                    "pages": [
+                      "POST /v1/messages"
+                    ]
+                  }
+                ]
+              },
+              {
+                "group": "Images",
+                "pages": [
+                  {
+                    "group": "OpenAI format",
+                    "openapi": {
+                      "source": "openapi/images.en.yaml",
+                      "directory": "en-images"
+                    },
+                    "pages": [
+                      "POST /v1/images/generations",
+                      "POST /v1/images/edits"
+                    ]
+                  },
+                  {
+                    "group": "Nano Banana",
+                    "openapi": {
+                      "source": "openapi/images.en.yaml",
+                      "directory": "en-images"
+                    },
+                    "pages": [
+                      "POST /v1beta/models/{model}:generateContent",
+                      "POST /v1/chat/completions"
+                    ]
+                  }
+                ]
+              },
+              {
+                "group": "Videos",
+                "pages": [
+                  {
+                    "group": "Seedance (async)",
+                    "openapi": {
+                      "source": "openapi/videos.en.yaml",
+                      "directory": "en-videos"
+                    },
+                    "pages": [
+                      "POST /v1/videos",
+                      "GET /v1/videos/{task_id}",
+                      "GET /v1/videos/{task_id}/content"
+                    ]
+                  },
+                  {
+                    "group": "Generic video API",
+                    "openapi": {
+                      "source": "openapi/videos.en.yaml",
+                      "directory": "en-videos"
+                    },
+                    "pages": [
+                      "POST /v1/video/generations",
+                      "GET /v1/video/generations/{task_id}"
+                    ]
+                  }
                 ]
               },
               {
@@ -84,13 +264,7 @@
                 "pages": [
                   "guides/model-selection",
                   "guides/streaming",
-                  "guides/multimodal-input",
-                  "guides/cost-optimization",
-                  "guides/function-calling",
-                  "guides/error-codes",
-                  "guides/webhook-payloads",
-                  "guides/apifox-sandbox",
-                  "guides/mcp-integration"
+                  "guides/multimodal-input"
                 ]
               }
             ]
@@ -100,7 +274,16 @@
     ]
   },
   "api": {
-    "openapi": "openapi/openapi.bundled.yaml"
+    "playground": {
+      "display": "interactive"
+    },
+    "examples": {
+      "languages": [
+        "curl",
+        "python",
+        "javascript"
+      ]
+    }
   },
   "footer": {
     "socials": {

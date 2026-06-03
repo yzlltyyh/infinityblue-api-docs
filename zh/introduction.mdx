@@ -1,47 +1,53 @@
 ---
 title: "介绍"
-description: "InfinityBlue API 文档"
+description: "InfinityBlue API 是什么、支持哪些模型，以及如何接入"
 ---
 
-# InfinityBlue API
+# InfinityBlue API 介绍
 
-一个兼容 OpenAI 协议的统一网关，覆盖聊天、图像、视频、音频、向量化与重排序模型。中文用户可从这里开始；右侧语言切换可在中英文档之间随时切换。
+InfinityBlue API 是一个 **OpenAI 兼容的统一 AI 模型网关**，将主流大模型聚合在同一个端点下。只需修改 `base_url`，任何面向 OpenAI 的 SDK、框架或教程均可直接复用，无需维护多套 Key 或适配不同协议。
 
-## 你能获得什么
+## 支持的模型
 
-<CardGroup cols={2}>
-  <Card title="快速开始" icon="rocket" href="/zh/quickstart/auth">
-    5 分钟跑通第一个 API 请求
-  </Card>
-  <Card title="API 参考" icon="code" href="/api-reference/chat">
-    浏览全部端点，带可交互 Playground
-  </Card>
-  <Card title="指南" icon="book" href="/guides/model-selection">
-    学习如何选模型与使用进阶能力
-  </Card>
-  <Card title="GitHub 仓库" icon="github" href="https://github.com/yzlltyyh/infinityblue-api-docs">
-    本文档的源代码
-  </Card>
-</CardGroup>
+### 对话模型
 
-## 鉴权方式
+| 系列 | 模型 ID |
+|---|---|
+| **OpenAI GPT** | `gpt-5.4`（旗舰）、`gpt-5.4-mini`（高性价比）、`gpt-5.5`、`gpt-5.3-codex`（代码专长） |
+| **Google Gemini** | `gemini-3.1-pro-preview`、`gemini-2.5-pro`、`gemini-2.5-flash`、`gemini-3-flash-preview` |
+| **DeepSeek** | `deepseek-v4-pro`、`deepseek-v4-flash` |
 
-所有请求都需要在 `Authorization` 头中携带 Bearer Token：
+### 图像模型
 
-```bash
-curl https://api.infinityblue.com/v1/chat/completions \
-  -H "Authorization: Bearer YOUR_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "model": "gpt-4o",
-    "messages": [{"role": "user", "content": "你好!"}]
-  }'
+`gpt-image-2`、`nanobanana`、`nanobanana_pro`、`nanobanana_2`
+
+### 视频模型
+
+`doubao-seedance-2-0-260128`、`veo_3_1`、`kling-v2-5-turbo`
+
+## 接入方式
+
+所有请求统一发往：
+
+```
+https://api.getinfinityblue.com/v1
 ```
 
-<Note>
-  本文档由 `openapi/openapi.yaml` 自动生成（仓库地址见上方 GitHub 卡片）。
-  如果发现错误或需要补充的内容，欢迎提 Issue 或 PR。中文用户提问时使用中文即可。
-</Note>
+鉴权方式与 OpenAI 完全一致——`Authorization: Bearer YOUR_API_KEY`。使用 OpenAI Python / JS SDK 只需改一个参数：
+
+```python
+from openai import OpenAI
+
+client = OpenAI(
+    api_key="YOUR_API_KEY",
+    base_url="https://api.getinfinityblue.com/v1",
+)
+
+response = client.chat.completions.create(
+    model="gpt-5.4",
+    messages=[{"role": "user", "content": "你好"}],
+)
+```
 
 ## 推荐阅读路径
 
@@ -55,7 +61,11 @@ curl https://api.infinityblue.com/v1/chat/completions \
   <Step title="了解错误码">
     遇到报错时，参考 [错误处理](/zh/quickstart/errors) 排查问题。
   </Step>
-  <Step title="按需深入">
-    在 [API 参考](/api-reference/chat) 中查看具体端点参数，或阅读 [模型选择](/guides/model-selection) 等进阶指南。
+  <Step title="选对模型">
+    阅读 [模型选择](/zh/guides/model-selection) 了解各模型的定位与适用场景。当前价格见 [价格页](https://api.getinfinityblue.com/pricing)。
   </Step>
 </Steps>
+
+<Note>
+  本文档由本仓库的 OpenAPI 规范生成。发现错误或有补充，欢迎提 Issue 或 PR。中文用户提问时使用中文即可。
+</Note>

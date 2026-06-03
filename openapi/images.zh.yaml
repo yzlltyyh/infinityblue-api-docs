@@ -1,0 +1,1077 @@
+openapi: 3.1.0
+info:
+  title: InfinityBlue API — 图像（Images）
+  version: "1.0.0"
+  summary: 图像生成与编辑接口
+  description: |
+    InfinityBlue 图像接口支持 OpenAI 原生格式与 NanoBanana（Gemini 原生）格式，
+    涵盖文生图、图像编辑以及多参考图融合生成等场景。
+
+    ## 认证
+
+    所有请求都需要在请求头中携带 API Key：
+
+    ```
+    Authorization: Bearer YOUR_API_KEY
+    ```
+
+    在 [控制台](https://getinfinityblue.com) 创建和管理你的 API Key。
+
+    ## 接口格式约定
+
+    | 路径前缀 | 兼容格式 |
+    | --- | --- |
+    | `/v1/images/*` | OpenAI Images API |
+    | `/v1/chat/completions` | OpenAI Chat Completions（NanoBanana OpenAI 格式） |
+    | `/v1beta/models/{model}:generateContent` | Google Gemini 原生（NanoBanana 原生格式） |
+  contact:
+    name: InfinityBlue
+    url: https://getinfinityblue.com
+
+servers:
+  - url: https://api.getinfinityblue.com
+    description: 生产环境
+
+security:
+  - bearerAuth: []
+
+tags:
+  - name: 图像（Images）
+    description: |
+      OpenAI 兼容的图像生成与编辑接口，支持 `gpt-image-2` 等模型。
+  - name: NanoBanana
+    description: |
+      NanoBanana 图像生成接口，支持原生 Gemini 格式与 OpenAI 聊天格式，
+      可用于文生图、多参考图融合及风格统一等场景。
+
+paths:
+  /v1/images/generations:
+    post:
+      tags:
+        - 图像（Images）
+      summary: 生成图像
+      operationId: createImageGeneration
+      description: |
+        根据文本提示词生成图像。支持 `gpt-image-2` 模型，
+        提供灵活的尺寸配置、质量控制、背景透明度设置及流式局部图片返回等功能。
+
+        完全兼容 OpenAI Images API——把官方 SDK 的 base URL 指向 InfinityBlue 即可直接使用。
+      x-mint:
+        metadata:
+          title: 生成图像
+          sidebarTitle: 文生图（OpenAI 格式）
+          description: 根据文本提示生成图像，支持多种尺寸、质量和输出格式
+        content: |
+          ## 可使用的模型
+
+          | 模型 ID | 说明 |
+          | --- | --- |
+          | `gpt-image-2` | GPT Image 2，支持灵活尺寸、透明背景、流式部分图 |
+
+          ## 尺寸说明（`gpt-image-2`）
+
+          `size` 参数默认为 `auto`，支持灵活尺寸：
+          - 边长不超过 `3840px`
+          - 宽高均为 `16` 的倍数
+          - 长边与短边比例不超过 `3:1`
+          - 总像素介于 `655,360` 到 `8,294,400` 之间
+
+          常用预设：`1024x1024`、`1536x1024`（横向）、`1024x1536`（纵向）、
+          `2048x2048`、`2048x1152`、`3840x2160`、`2160x3840`。
+
+          ## 流式输出
+
+          设置 `stream: true` 可在生成过程中逐步返回局部图像。
+          通过 `partial_images` 控制中间帧数量（`0`–`3`），
+          每张部分图像额外计入 `100` 个 output tokens。
+
+          ## 质量与格式
+
+          - `quality`：`low`（最快）/ `medium` / `high`（最高质量）/ `auto`（默认）
+          - `output_format`：`png`（默认）/ `jpeg` / `webp`
+          - `output_compression`：仅对 `jpeg` / `webp` 生效，取值 `0`–`100`
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ImageGenerationRequest"
+            examples:
+              basic:
+                summary: 基础文生图
+                value:
+                  model: gpt-image-2
+                  prompt: 一只可爱的海獭宝宝漂浮在蓝色海面上
+                  n: 1
+                  size: 1024x1024
+              high_quality:
+                summary: 高质量横向图
+                value:
+                  model: gpt-image-2
+                  prompt: 未来都市夜景，霓虹灯倒映在雨后的街道上，赛博朋克风格
+                  size: 1536x1024
+                  quality: high
+                  output_format: png
+              streaming:
+                summary: 流式生成（含局部图）
+                value:
+                  model: gpt-image-2
+                  prompt: 宁静的日式庭院，樱花飘落，阳光透过树叶洒下
+                  stream: true
+                  partial_images: 2
+                  size: 1024x1024
+              transparent_bg:
+                summary: 透明背景（PNG）
+                value:
+                  model: gpt-image-2
+                  prompt: 白色背景上的红苹果图标，扁平设计风格
+                  background: transparent
+                  output_format: png
+                  size: 1024x1024
+      responses:
+        "200":
+          description: 成功生成图像
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImageGenerationResponse"
+        "400":
+          description: 请求参数错误
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: API Key 无效或缺失
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: 请求频率超限
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: 服务器内部错误
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /v1/images/edits:
+    post:
+      tags:
+        - 图像（Images）
+      summary: 编辑图像
+      operationId: createImageEdit
+      description: |
+        根据原始图像和文本提示创建编辑或扩展后的图像。
+        支持 `gpt-image-2` 模型，可提供遮罩区域以限定编辑范围，
+        也支持多张参考图输入以实现风格统一或素材融合。
+
+        请求体为 `multipart/form-data` 格式，包含图像文件和文本参数。
+      x-mint:
+        metadata:
+          title: 编辑图像
+          sidebarTitle: 图像编辑（OpenAI 格式）
+          description: 基于参考图和文本提示编辑图像，支持遮罩区域与多参考图输入
+        content: |
+          ## 遮罩说明
+
+          - `mask`：PNG 文件，透明区域（alpha=0）指定编辑位置
+          - `input_image_mask`：`gpt-image-2` 推荐的遮罩字段，需包含 alpha 通道，
+            与输入图像尺寸相同
+
+          ## 多参考图
+
+          通过 `images` 字段可传入 1–16 张额外参考图（URL、base64 或 File ID），
+          配合主图 `image` 实现多图参考生成。
+
+          ## `gpt-image-2` 特有参数
+
+          | 参数 | 说明 |
+          | --- | --- |
+          | `images`（多参考图） | 支持 1–16 张参考图 |
+          | `input_image_mask` | 推荐的遮罩字段，需含 alpha 通道 |
+          | `input_fidelity` | 自动高保真，API 忽略手动设置 |
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/ImageEditRequest"
+      responses:
+        "200":
+          description: 成功生成编辑图像
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImageGenerationResponse"
+        "400":
+          description: 请求参数错误
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: API Key 无效或缺失
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: 请求频率超限
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: 服务器内部错误
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /v1beta/models/{model}:generateContent:
+    post:
+      tags:
+        - NanoBanana
+      summary: NanoBanana 原生格式生成图像
+      operationId: createNanoBananaImageNative
+      description: |
+        通过 Gemini 原生格式调用 NanoBanana 图像生成模型。
+        支持文生图、单图参考编辑及多图参考融合生成，
+        可指定宽高比（`aspectRatio`）和分辨率等级（`imageSize`）。
+
+        路径参数 `model` 传入 NanoBanana 模型 ID，例如 `nanobanana_pro`。
+      x-mint:
+        metadata:
+          title: NanoBanana 原生格式
+          sidebarTitle: NanoBanana（Gemini 格式）
+          description: 使用 Gemini 原生协议调用 NanoBanana，支持多图参考与高清输出
+        content: |
+          ## 可使用的模型
+
+          | 模型 ID | 说明 |
+          | --- | --- |
+          | `nanobanana` | 标准版，均衡速度与质量 |
+          | `nanobanana_pro` | 高质量版，适合产品图、精细风格统一 |
+          | `nanobanana_2` | 第二代，特价分组**仅支持 OpenAI 聊天格式**（见独立接口） |
+
+          ## 多图参考
+
+          在 `contents[].parts` 中连续追加多个 `inline_data` 对象，
+          每个对象对应一张参考图的 Base64 数据，即可实现多图参考输入。
+
+          ## 分辨率配置
+
+          `generationConfig.imageConfig` 中：
+          - `aspectRatio`：`1:1`、`3:4`、`4:3`、`9:16`、`16:9`
+          - `imageSize`：`1K`、`2K`、`4K`
+
+          ## 思考内容
+
+          设置 `generationConfig.thinkingConfig.includeThoughts: true`
+          可在响应中返回模型的推理过程。
+      parameters:
+        - name: model
+          in: path
+          required: true
+          description: |
+            NanoBanana 模型 ID，例如 `nanobanana_pro`。
+            可选值：`nanobanana`、`nanobanana_pro`。
+          schema:
+            type: string
+          example: nanobanana_pro
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NanoBananaRequest"
+            examples:
+              text_to_image:
+                summary: 文生图（基础）
+                value:
+                  contents:
+                    - role: user
+                      parts:
+                        - text: 画一只猫，坐在月光下的屋顶上
+                  generationConfig:
+                    responseModalities:
+                      - TEXT
+                      - IMAGE
+                    imageConfig:
+                      aspectRatio: "16:9"
+                      imageSize: 4K
+              with_thinking:
+                summary: 返回思考内容
+                value:
+                  contents:
+                    - role: user
+                      parts:
+                        - text: 画一只猫，坐在月光下的屋顶上
+                  generationConfig:
+                    thinkingConfig:
+                      includeThoughts: true
+                    responseModalities:
+                      - TEXT
+                      - IMAGE
+                    imageConfig:
+                      aspectRatio: "16:9"
+                      imageSize: 4K
+              multi_reference:
+                summary: 多图参考融合
+                value:
+                  contents:
+                    - role: user
+                      parts:
+                        - text: 结合这两张参考图，生成一张统一风格的产品宣传图，保留主体轮廓，整体更高级、简洁、明亮
+                        - inline_data:
+                            mimeType: image/jpeg
+                            data: "<base64_image_1>"
+                        - inline_data:
+                            mimeType: image/jpeg
+                            data: "<base64_image_2>"
+                  generationConfig:
+                    responseModalities:
+                      - TEXT
+                      - IMAGE
+                    imageConfig:
+                      aspectRatio: "1:1"
+                      imageSize: 2K
+      responses:
+        "200":
+          description: 成功生成图像
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NanoBananaResponse"
+        "400":
+          description: 请求参数错误
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: API Key 无效或缺失
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: 请求频率超限
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: 服务器内部错误
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /v1/chat/completions:
+    post:
+      tags:
+        - NanoBanana
+      summary: NanoBanana OpenAI 聊天格式生成图像
+      operationId: createNanoBananaImageViaChat
+      description: |
+        通过 OpenAI Chat Completions 格式调用 NanoBanana 图像生成模型。
+        适合已使用 OpenAI SDK 的场景，或需要使用特价分组的 `nanobanana_2` 模型时
+        （该模型**仅支持此格式**，不支持 Gemini 原生格式）。
+
+        图像以 Markdown 格式内嵌于响应消息的 `content` 字段中：
+        `![image](data:image/jpeg;base64,<图片base64>)`。
+
+        通过 `extra_body.google.image_config` 配置宽高比和分辨率。
+
+        > **注意**：此接口路径 `/v1/chat/completions` 与聊天补全接口相同，
+        > 但 `model` 字段传入 NanoBanana 模型 ID 时，InfinityBlue 会自动路由到图像生成后端。
+        > 在 Mintlify 文档体系中，本页面作为独立的图像生成文档页呈现；
+        > 如需对接文档构建工具，请确认路径复用不会导致 operationId 冲突。
+      x-mint:
+        metadata:
+          title: NanoBanana OpenAI 聊天格式
+          sidebarTitle: NanoBanana（OpenAI 格式）
+          description: 通过 OpenAI 聊天接口调用 NanoBanana，适合特价分组及 OpenAI SDK 用户
+        content: |
+          ## 可使用的模型
+
+          | 模型 ID | 说明 |
+          | --- | --- |
+          | `nanobanana` | 标准版 |
+          | `nanobanana_pro` | 高质量版 |
+          | `nanobanana_2` | 第二代，**特价分组专用，仅支持此格式** |
+
+          ## 图像配置
+
+          通过请求体的 `extra_body` 字段传入 Google 扩展参数：
+
+          ```json
+          {
+            "extra_body": {
+              "google": {
+                "image_config": {
+                  "aspect_ratio": "16:9",
+                  "image_size": "2K"
+                }
+              }
+            }
+          }
+          ```
+
+          ## 响应格式
+
+          图像以 Markdown 内嵌于 `choices[0].message.content`：
+
+          ```
+          ![image](data:image/jpeg;base64,/9j/4AAQ...)
+          ```
+
+          ## 与聊天接口的关系
+
+          路径 `/v1/chat/completions` 被聊天补全接口共用；此处专门描述
+          `model` 为 NanoBanana ID 时的图像生成行为与特有的 `extra_body` 参数。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NanoBananaChatRequest"
+            examples:
+              basic:
+                summary: 基础文生图
+                value:
+                  model: nanobanana_pro
+                  stream: false
+                  messages:
+                    - role: user
+                      content: 画一只猫，坐在月光下的屋顶上
+                  extra_body:
+                    google:
+                      image_config:
+                        aspect_ratio: "16:9"
+                        image_size: 2K
+              nanobanana2_budget:
+                summary: NanoBanana 2（特价分组）
+                value:
+                  model: nanobanana_2
+                  stream: false
+                  messages:
+                    - role: user
+                      content: 一只熊猫坐在竹林里吃竹子，水彩画风格
+                  extra_body:
+                    google:
+                      image_config:
+                        aspect_ratio: "1:1"
+                        image_size: 1K
+      responses:
+        "200":
+          description: 成功生成图像
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NanoBananaChatResponse"
+        "400":
+          description: 请求参数错误
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: API Key 无效或缺失
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: 请求频率超限
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: 服务器内部错误
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: API Key
+      description: |
+        使用 Bearer Token 认证，格式：`Authorization: Bearer sk-xxxxxx`。
+        在 [控制台](https://getinfinityblue.com) 获取 API Key。
+
+  schemas:
+    ImageGenerationRequest:
+      type: object
+      required:
+        - model
+        - prompt
+      description: 图像生成请求体。
+      properties:
+        model:
+          type: string
+          description: |
+            用于图像生成的模型 ID，传入 `gpt-image-2`。
+          examples:
+            - gpt-image-2
+        prompt:
+          type: string
+          description: |
+            所需图像的文本描述。对于 `gpt-image-2`，最长支持 32,000 个字符。
+          examples:
+            - 一只可爱的海獭宝宝漂浮在蓝色海面上
+        n:
+          type: integer
+          minimum: 1
+          maximum: 10
+          default: 1
+          description: |
+            要生成的图像数量。对于 `gpt-image-2`，默认为 `1`，
+            通常支持 `1` 到 `10`，具体上限取决于账户 tier。
+        size:
+          type: string
+          default: auto
+          description: |
+            生成图像的尺寸。对于 `gpt-image-2`，默认为 `auto`，支持灵活尺寸（边长不超过
+            3840px、宽高均为 16 的倍数、长宽比不超过 3:1、总像素在 655,360–8,294,400 之间）；
+            常用预设包括 `1024x1024`、`1536x1024`、`1024x1536`、`2048x2048`、
+            `2048x1152`、`3840x2160`、`2160x3840`。
+          examples:
+            - 1024x1024
+            - 1536x1024
+            - auto
+        background:
+          type: string
+          description: |
+            生成图像的背景设置。对于 `gpt-image-2`，默认为 `auto`，
+            可选 `transparent`（透明，需将 `output_format` 设为 `png` 或 `webp`）、
+            `opaque`（不透明）或 `auto`。
+          enum:
+            - opaque
+            - transparent
+            - auto
+        moderation:
+          type: string
+          description: |
+            内容审核级别。对于 `gpt-image-2`，默认为 `auto`（标准），
+            可选 `low`（宽松）。
+          enum:
+            - auto
+            - low
+        quality:
+          type: string
+          description: |
+            生成图像的质量控制。对于 `gpt-image-2`，默认为 `auto`，
+            可选 `low`（最快）、`medium`、`high`（最高质量）。
+          enum:
+            - low
+            - medium
+            - high
+            - auto
+        stream:
+          type: boolean
+          default: false
+          description: |
+            是否以流式方式返回结果。对于 `gpt-image-2`，
+            设为 `true` 可在生成过程中逐步返回局部图像。
+        style:
+          type: string
+          description: 图像风格（部分模型支持）。
+        output_format:
+          type: string
+          description: |
+            生成图像的输出格式。对于 `gpt-image-2`，默认为 `png`，
+            可选 `png`、`jpeg`、`webp`。仅 GPT Image 系列支持此参数。
+          enum:
+            - png
+            - jpeg
+            - webp
+        output_compression:
+          type: integer
+          minimum: 0
+          maximum: 100
+          description: |
+            输出图像的压缩质量（0–100）。对于 `gpt-image-2`，
+            仅在 `output_format` 为 `jpeg` 或 `webp` 时生效。
+        partial_images:
+          type: integer
+          minimum: 0
+          maximum: 3
+          default: 0
+          description: |
+            流式返回时的中间帧数量（0–3）。对于 `gpt-image-2`，
+            每张部分图像额外计入 100 个 output tokens，
+            仅在 `stream: true` 时生效。
+        user:
+          type: string
+          description: |
+            代表终端用户的唯一标识符，可用于监控和滥用检测。
+
+    ImageGenerationResponse:
+      type: object
+      description: 图像生成响应体。
+      properties:
+        created:
+          type: integer
+          description: 创建时间的 Unix 时间戳（秒）。
+          examples:
+            - 1713833628
+        data:
+          type: array
+          description: 生成的图像列表。
+          items:
+            type: object
+            properties:
+              b64_json:
+                type: string
+                description: Base64 编码的图像数据（当 `response_format=b64_json` 时返回）。
+              url:
+                type: string
+                description: 图像的临时访问 URL（当 `response_format=url` 时返回）。
+        usage:
+          $ref: "#/components/schemas/ImageUsage"
+
+    ImageUsage:
+      type: object
+      description: 本次请求的 token 用量统计。
+      properties:
+        total_tokens:
+          type: integer
+          description: 总消耗 token 数。
+        input_tokens:
+          type: integer
+          description: 输入消耗的 token 数。
+        output_tokens:
+          type: integer
+          description: 输出消耗的 token 数（含图像生成 token）。
+        input_tokens_details:
+          type: object
+          description: 输入 token 明细。
+          properties:
+            text_tokens:
+              type: integer
+              description: 文本 token 数。
+            image_tokens:
+              type: integer
+              description: 图像 token 数。
+
+    ImageEditRequest:
+      type: object
+      required:
+        - image
+        - prompt
+      description: 图像编辑请求体（`multipart/form-data`）。
+      properties:
+        image:
+          type: string
+          format: binary
+          description: |
+            要编辑的主图像文件。对于 `gpt-image-2`，可作为参考图之一使用；
+            如未提供遮罩，建议通过 `input_image_mask` 指定编辑区域。
+        images:
+          type: array
+          description: |
+            额外参考图像列表，支持 1–16 张。接受 URL、base64 或 File ID。
+            可在此字段提供多张参考图；其余参数规则与图像生成接口一致。
+          items:
+            type: string
+        mask:
+          type: string
+          format: binary
+          description: |
+            遮罩图像文件，其完全透明区域（alpha=0）指定编辑位置。
+            对于 `gpt-image-2`，建议改用 `input_image_mask`。
+        input_image_mask:
+          type: string
+          format: binary
+          description: |
+            `gpt-image-2` 专用遮罩字段。需包含 alpha 通道，
+            且与输入图像尺寸相同，用于指定编辑区域。
+        prompt:
+          type: string
+          description: 所需图像的文本描述，最大长度为 1000 个字符。
+          examples:
+            - 把图中的猫换成一只柴犬，保持背景不变
+        n:
+          type: string
+          description: 要生成的图像数，须在 1–10 之间。
+        size:
+          type: string
+          description: |
+            生成图像的尺寸。对于 `gpt-image-2`，参数规则与生成接口一致，
+            默认为 `auto`，支持灵活尺寸及常用预设（如 `1024x1024`、`1536x1024`）。
+          examples:
+            - 1024x1024
+        response_format:
+          type: string
+          description: 返回图像的格式，必须是 `url` 或 `b64_json`。
+          enum:
+            - url
+            - b64_json
+        input_fidelity:
+          type: string
+          description: |
+            输入保真度设置。对于 `gpt-image-2`，强制高保真，
+            API 会自动忽略此参数的手动设置。
+        model:
+          type: string
+          description: |
+            使用的图像模型。支持 `gpt-image-2`；
+            使用 `gpt-image-2` 时，`images` 和 `input_image_mask` 参数生效。
+          examples:
+            - gpt-image-2
+        user:
+          type: string
+          description: 代表终端用户的唯一标识符，可用于监控和滥用检测。
+
+    NanoBananaRequest:
+      type: object
+      required:
+        - contents
+        - generationConfig
+      description: NanoBanana 原生格式图像生成/编辑请求体。
+      properties:
+        contents:
+          type: array
+          description: |
+            对话内容列表。通常传入一条 `user` 消息；
+            在该消息的 `parts` 中可同时放入文本提示和多张参考图片。
+          items:
+            $ref: "#/components/schemas/NanoBananaContent"
+        generationConfig:
+          $ref: "#/components/schemas/NanoBananaGenerationConfig"
+
+    NanoBananaContent:
+      type: object
+      required:
+        - role
+        - parts
+      description: 单条消息对象。
+      properties:
+        role:
+          type: string
+          description: 消息角色，通常固定为 `user`，表示用户输入的图像生成或编辑请求。
+          examples:
+            - user
+        parts:
+          type: array
+          description: |
+            消息内容片段列表，支持混合传入文本与图片。
+            一般第一个 part 为文本提示（`text`），
+            后续可追加一个或多个 `inline_data` 作为参考图，实现多图参考输入。
+          items:
+            $ref: "#/components/schemas/NanoBananaPart"
+
+    NanoBananaPart:
+      type: object
+      description: |
+        消息片段对象。每个片段二选一：
+        传 `text` 表示文本提示，传 `inline_data` 表示图片内容。
+        若需多图参考，可在 `parts` 中连续传入多个 `inline_data` 对象。
+      properties:
+        text:
+          type: string
+          description: |
+            文本提示词，用于描述生成目标、风格、构图、主体保留要求等。
+          examples:
+            - 结合这两张参考图，生成一张统一风格的产品宣传图，保留主体轮廓，整体更高级、简洁、明亮
+        inline_data:
+          $ref: "#/components/schemas/NanoBananaInlineData"
+
+    NanoBananaInlineData:
+      type: object
+      required:
+        - mimeType
+        - data
+      description: |
+        内联图片数据，用于传入参考图或输入图像。
+        支持在 `parts` 中提供多张图片（多图参考输入）；
+        模型会结合所有图片与文本提示进行综合生成。
+      properties:
+        mimeType:
+          type: string
+          description: 图片 MIME 类型，如 `image/jpeg`、`image/png`、`image/webp`，需与实际格式一致。
+          examples:
+            - image/jpeg
+        data:
+          type: string
+          description: |
+            图片的 Base64 编码数据，不包含 `data:image/...;base64,` 前缀。
+            可传入一张或多张图片；多图场景下，每张图对应一个独立的 `inline_data.data`。
+          examples:
+            - "<base64_encoded_image_data>"
+
+    NanoBananaGenerationConfig:
+      type: object
+      required:
+        - responseModalities
+        - imageConfig
+      description: 生成参数配置，用于控制返回模态、图片规格等。
+      properties:
+        thinkingConfig:
+          type: object
+          description: 思考过程返回配置，图像生成场景通常可选。
+          properties:
+            includeThoughts:
+              type: boolean
+              description: 是否返回模型思考内容。`true` 表示返回；图像生成通常传 `false` 或不传。
+              examples:
+                - false
+        responseModalities:
+          type: array
+          description: |
+            响应模态列表，指定接口返回的数据类型。
+            图像生成常用值：`TEXT`（文字说明）和 `IMAGE`（生成图片）。
+          items:
+            type: string
+            enum:
+              - TEXT
+              - IMAGE
+          examples:
+            - - TEXT
+              - IMAGE
+        imageConfig:
+          $ref: "#/components/schemas/NanoBananaImageConfig"
+
+    NanoBananaImageConfig:
+      type: object
+      required:
+        - aspectRatio
+        - imageSize
+      description: 图片输出配置，用于设置生成图片的宽高比和分辨率等级。
+      properties:
+        aspectRatio:
+          type: string
+          description: |
+            输出图片宽高比。应根据投放场景选择合适比例。
+            可选值：`1:1`、`3:4`、`4:3`、`9:16`、`16:9`。
+          examples:
+            - "1:1"
+            - "16:9"
+        imageSize:
+          type: string
+          description: |
+            输出图片分辨率等级。数值越高清晰度越高，生成耗时也可能增加。
+            可选值：`1K`、`2K`、`4K`。
+          examples:
+            - 2K
+            - 4K
+
+    NanoBananaResponse:
+      type: object
+      description: NanoBanana 原生格式响应体。
+      properties:
+        candidates:
+          type: array
+          description: 模型生成的候选结果列表。
+          items:
+            type: object
+            properties:
+              content:
+                type: object
+                description: 候选结果的内容。
+                properties:
+                  role:
+                    type: string
+                    description: 消息角色（通常为 `model`）。
+                  parts:
+                    type: array
+                    description: 内容片段列表，包含文本和/或图像数据。
+                    items:
+                      type: object
+                      description: 单个内容片段，包含文本或图像 inline_data。
+              finishReason:
+                type: string
+                description: 生成结束原因。
+              safetyRatings:
+                type: array
+                description: 安全评级列表。
+                items:
+                  type: object
+        usageMetadata:
+          type: object
+          description: Token 用量统计。
+          properties:
+            promptTokenCount:
+              type: integer
+              description: 提示词消耗的 token 数。
+            candidatesTokenCount:
+              type: integer
+              description: 候选结果消耗的 token 数。
+            totalTokenCount:
+              type: integer
+              description: 总消耗 token 数。
+
+    NanoBananaChatRequest:
+      type: object
+      required:
+        - model
+        - messages
+      description: NanoBanana OpenAI 聊天格式图像生成请求体。
+      properties:
+        model:
+          type: string
+          description: |
+            NanoBanana 模型 ID。可选值：`nanobanana`、`nanobanana_pro`、`nanobanana_2`。
+            特价分组的 `nanobanana_2` 仅支持此格式，不支持 Gemini 原生格式。
+          examples:
+            - nanobanana_pro
+            - nanobanana_2
+        stream:
+          type: boolean
+          default: false
+          description: 是否流式返回。图像生成通常设为 `false`。
+        messages:
+          type: array
+          description: 对话消息列表，包含用户的图像生成提示。
+          items:
+            type: object
+            required:
+              - role
+              - content
+            properties:
+              role:
+                type: string
+                description: 消息角色。
+                enum:
+                  - user
+                  - system
+                  - assistant
+              content:
+                type: string
+                description: 消息内容，对于图像生成即为文本提示词。
+        extra_body:
+          type: object
+          description: |
+            扩展参数，通过 `google.image_config` 传入图像配置（宽高比和分辨率）。
+          properties:
+            google:
+              type: object
+              description: Google 扩展参数。
+              properties:
+                image_config:
+                  type: object
+                  description: 图像生成配置。
+                  required:
+                    - aspect_ratio
+                    - image_size
+                  properties:
+                    aspect_ratio:
+                      type: string
+                      description: |
+                        输出图片宽高比。可选值：`1:1`、`3:4`、`4:3`、`9:16`、`16:9`。
+                      examples:
+                        - "16:9"
+                    image_size:
+                      type: string
+                      description: |
+                        输出图片分辨率等级。可选值：`1K`、`2K`、`4K`。
+                      examples:
+                        - 2K
+
+    NanoBananaChatResponse:
+      type: object
+      description: NanoBanana OpenAI 聊天格式响应体。图像以 Markdown 内嵌于消息内容中。
+      properties:
+        id:
+          type: string
+          description: 本次请求的唯一标识。
+          examples:
+            - chatcmpl-20251211160744809365000fdOhL0KY
+        model:
+          type: string
+          description: 实际处理请求的模型 ID。
+          examples:
+            - nanobanana_pro
+        object:
+          type: string
+          description: 对象类型。
+          examples:
+            - chat.completion
+        created:
+          type: integer
+          description: 创建时间的 Unix 时间戳（秒）。
+          examples:
+            - 1765440499
+        choices:
+          type: array
+          description: 生成结果列表。
+          items:
+            type: object
+            properties:
+              index:
+                type: integer
+                description: 结果序号。
+              message:
+                type: object
+                description: 生成的消息，`content` 字段包含 Markdown 格式的内嵌图像。
+                properties:
+                  role:
+                    type: string
+                    examples:
+                      - assistant
+                  content:
+                    type: string
+                    description: |
+                      消息内容。图像以 Markdown 格式内嵌：
+                      `![image](data:image/jpeg;base64,<base64数据>)`。
+                    examples:
+                      - "![image](data:image/jpeg;base64,/9j/4AAQ...)"
+              finish_reason:
+                type: string
+                description: 生成结束原因。
+                examples:
+                  - stop
+        usage:
+          type: object
+          description: Token 用量统计。
+          properties:
+            prompt_tokens:
+              type: integer
+              description: 提示词消耗的 token 数。
+            completion_tokens:
+              type: integer
+              description: 补全消耗的 token 数（含图像生成 token）。
+            total_tokens:
+              type: integer
+              description: 总消耗 token 数。
+
+    ErrorResponse:
+      type: object
+      description: 标准错误响应。
+      properties:
+        error:
+          type: object
+          properties:
+            message:
+              type: string
+              description: 错误信息。
+              examples:
+                - 无效的尺寸。支持的尺寸为 1024x1024、1536x1024、1024x1536。
+            type:
+              type: string
+              description: 错误类型。
+              examples:
+                - invalid_request_error
+            param:
+              type: [string, "null"]
+              description: 相关参数。
+              examples:
+                - size
+            code:
+              type: [string, "null"]
+              description: 错误代码。
+              examples:
+                - invalid_size

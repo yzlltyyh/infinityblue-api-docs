@@ -27,10 +27,10 @@ Vision-capable chat models accept images inside a user message. The content beco
 Pass the image as a content part with `type: image_url`:
 
 ```bash
-curl https://api.infinityblue.com/v1/chat/completions \
+curl https://api.getinfinityblue.com/v1/chat/completions \
   -H "Authorization: Bearer YOUR_API_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"model":"gpt-4o","messages":[{"role":"user","content":[{"type":"text","text":"What is in this image?"},{"type":"image_url","image_url":{"url":"https://example.com/cat.jpg"}}]}]}'
+  -d '{"model":"gpt-5.4","messages":[{"role":"user","content":[{"type":"text","text":"What is in this image?"},{"type":"image_url","image_url":{"url":"https://example.com/cat.jpg"}}]}]}'
 ```
 
 The URL must be reachable from the gateway. If your bucket is private, generate a short-lived pre-signed URL or switch to base64.
@@ -43,11 +43,11 @@ Inline the bytes as a data URI:
 import base64
 from openai import OpenAI
 
-client = OpenAI(api_key="YOUR_API_KEY", base_url="https://api.infinityblue.com/v1")
+client = OpenAI(api_key="YOUR_API_KEY", base_url="https://api.getinfinityblue.com/v1")
 encoded = base64.b64encode(open("cat.jpg", "rb").read()).decode("utf-8")
 
 response = client.chat.completions.create(
-    model="gpt-4o",
+    model="gpt-5.4",
     messages=[{
         "role": "user",
         "content": [
@@ -69,7 +69,7 @@ Add as many content parts as you need. The model reads them in order:
 
 ```json
 {
-  "model": "gpt-4o",
+  "model": "gpt-5.4",
   "messages": [
     {
       "role": "user",
@@ -87,7 +87,6 @@ Add as many content parts as you need. The model reads them in order:
 
 - Each model has a maximum number of images per request and a maximum resolution. Excess is rejected with `400 invalid_request_error`.
 - Total request size — text plus encoded images — must stay under the per-request byte cap. For base64, encode the image first and check `len(b64) * 3 / 4` against the limit.
-- Some models accept PDFs in addition to images. The content type changes to `application/pdf` and the model returns structured extractions.
 - When you mix text and images, keep the text part concise. The model reads both, but verbose prompts dilute the focus on the visual.
 
 ## Streaming and tools

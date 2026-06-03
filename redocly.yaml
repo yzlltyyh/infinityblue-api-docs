@@ -1,7 +1,3 @@
-apis:
-  api@v1:
-    root: openapi/openapi.yaml
-
 extends:
   - recommended
 

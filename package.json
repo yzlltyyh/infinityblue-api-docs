@@ -4,9 +4,8 @@
   "description": "InfinityBlue API documentation — OpenAPI spec + Mintlify site",
   "private": true,
   "scripts": {
-    "lint": "redocly lint openapi/openapi.yaml",
-    "bundle": "redocly bundle openapi/openapi.yaml --output openapi/openapi.bundled.yaml",
-    "validate": "mint validate openapi/openapi.yaml",
+    "lint": "redocly lint openapi/chat.zh.yaml openapi/chat.en.yaml openapi/images.zh.yaml openapi/images.en.yaml openapi/videos.zh.yaml openapi/videos.en.yaml openapi/models.zh.yaml openapi/models.en.yaml",
+    "validate": "mint validate",
     "dev": "mint dev"
   },
   "devDependencies": {

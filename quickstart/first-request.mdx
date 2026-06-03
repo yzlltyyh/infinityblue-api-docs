@@ -12,9 +12,9 @@ This walkthrough sends a single chat completion, inspects the response, and poin
 The endpoint is `POST /v1/chat/completions`. The body is JSON, the auth header is required, and the request is OpenAI-compatible, so any SDK or tutorial that works against `api.openai.com` works here too.
 
 ```bash
-curl https://api.infinityblue.com/v1/chat/completions \
+curl https://api.getinfinityblue.com/v1/chat/completions \
   -H "Authorization: Bearer YOUR_API_KEY" -H "Content-Type: application/json" \
-  -d '{"model":"gpt-4o","messages":[{"role":"system","content":"You are a concise assistant."},{"role":"user","content":"Say hello in one short sentence."}]}'
+  -d '{"model":"gpt-5.4","messages":[{"role":"system","content":"You are a concise assistant."},{"role":"user","content":"Say hello in one short sentence."}]}'
 ```
 
 A successful response looks like this:
@@ -24,7 +24,7 @@ A successful response looks like this:
   "id": "chatcmpl-9f3a8b2e1c0d",
   "object": "chat.completion",
   "created": 1717430000,
-  "model": "gpt-4o-2024-08-06",
+  "model": "gpt-5.4",
   "choices": [
     {
       "index": 0,
@@ -67,9 +67,9 @@ The same request is straightforward from Python or JavaScript:
 ```python
 from openai import OpenAI
 
-client = OpenAI(api_key="YOUR_API_KEY", base_url="https://api.infinityblue.com/v1")
+client = OpenAI(api_key="YOUR_API_KEY", base_url="https://api.getinfinityblue.com/v1")
 reply = client.chat.completions.create(
-    model="gpt-4o",
+    model="gpt-5.4",
     messages=[{"role": "user", "content": "Say hello in one short sentence."}],
 )
 print(reply.choices[0].message.content)
@@ -77,20 +77,20 @@ print(reply.choices[0].message.content)
 
 ```javascript
 import OpenAI from "openai";
-const client = new OpenAI({ apiKey: "YOUR_API_KEY", baseURL: "https://api.infinityblue.com/v1" });
+const client = new OpenAI({ apiKey: "YOUR_API_KEY", baseURL: "https://api.getinfinityblue.com/v1" });
 const reply = await client.chat.completions.create({
-  model: "gpt-4o", messages: [{ role: "user", content: "Say hello in one short sentence." }],
+  model: "gpt-5.4", messages: [{ role: "user", content: "Say hello in one short sentence." }],
 });
 console.log(reply.choices[0].message.content);
 ```
 
 <Info>
-  You can keep using the OpenAI SDK, LangChain, LlamaIndex, or any other library that targets the OpenAI HTTP API. Just point the base URL at `https://api.infinityblue.com/v1`.
+  You can keep using the OpenAI SDK, LangChain, LlamaIndex, or any other library that targets the OpenAI HTTP API. Just point the base URL at `https://api.getinfinityblue.com/v1`.
 </Info>
 
 ## Recommended next steps
 
 - Read [Error Handling](/quickstart/errors) to learn how the gateway reports failures and how to retry safely.
-- Browse the [Chat API reference](/api-reference/chat) for the full set of supported parameters, including tool use and vision.
 - Try [Streaming](/guides/streaming) to start returning tokens to your UI as soon as they are produced.
 - Use [Model Selection](/guides/model-selection) to pick the right model for your latency, cost, and capability constraints.
+- Send images alongside text with [Multimodal Input](/guides/multimodal-input).

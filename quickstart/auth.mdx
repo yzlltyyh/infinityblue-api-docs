@@ -11,7 +11,7 @@ Every request to the InfinityBlue API must include a Bearer token in the `Author
 
 <Steps>
   <Step title="Sign in">
-    Open the [InfinityBlue dashboard](https://infinityblue.com) and sign in with your account.
+    Open the [InfinityBlue dashboard](https://getinfinityblue.com) and sign in with your account.
   </Step>
   <Step title="Open the API keys page">
     Navigate to **Settings → API Keys**. The page lists every key that belongs to your workspace, along with its creation date and last-used timestamp.
@@ -30,10 +30,10 @@ Every request to the InfinityBlue API must include a Bearer token in the `Author
 The key goes in the `Authorization` header using the Bearer scheme:
 
 ```bash
-curl https://api.infinityblue.com/v1/chat/completions \
+curl https://api.getinfinityblue.com/v1/chat/completions \
   -H "Authorization: Bearer YOUR_API_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"model": "gpt-4o", "messages": [{"role": "user", "content": "Hi"}]}'
+  -d '{"model": "gpt-5.4", "messages": [{"role": "user", "content": "Hi"}]}'
 ```
 
 When using the official OpenAI SDKs, point the client at the InfinityBlue base URL and supply the key through the standard environment variable:
@@ -44,11 +44,11 @@ from openai import OpenAI
 
 client = OpenAI(
     api_key=os.environ["INFINITYBLUE_API_KEY"],
-    base_url="https://api.infinityblue.com/v1",
+    base_url="https://api.getinfinityblue.com/v1",
 )
 
 response = client.chat.completions.create(
-    model="gpt-4o",
+    model="gpt-5.4",
     messages=[{"role": "user", "content": "Hi"}],
 )
 ```
@@ -58,11 +58,11 @@ import OpenAI from "openai";
 
 const client = new OpenAI({
   apiKey: process.env.INFINITYBLUE_API_KEY,
-  baseURL: "https://api.infinityblue.com/v1",
+  baseURL: "https://api.getinfinityblue.com/v1",
 });
 
 const response = await client.chat.completions.create({
-  model: "gpt-4o",
+  model: "gpt-5.4",
   messages: [{ role: "user", content: "Hi" }],
 });
 ```
@@ -91,7 +91,7 @@ If you receive a `401 Unauthorized` response, walk through this checklist:
     A revoked or deleted key returns the same `401` error. Re-check the API keys page in the dashboard.
   </Step>
   <Step title="Confirm the base URL">
-    Make sure you are sending requests to `https://api.infinityblue.com/v1` and not a sibling host. Different environments have different key namespaces.
+    Make sure you are sending requests to `https://api.getinfinityblue.com/v1` and not a sibling host. Different environments have different key namespaces.
   </Step>
 </Steps>
 

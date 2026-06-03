@@ -1,0 +1,1221 @@
+openapi: 3.1.0
+info:
+  title: InfinityBlue API — Videos
+  version: "1.0.0"
+  summary: Unified AI video generation endpoints
+  description: |
+    Video generation endpoints using an **async task model**:
+    submit a task → poll for status → retrieve the result.
+
+    InfinityBlue provides two video endpoint families:
+
+    - **Generic video endpoints** (`/v1/video/generations`): multi-vendor support
+      for Kling, Veo, and others. Request style is close to the OpenAI Images API,
+      making it suitable for cross-model scenarios.
+    - **Seedance 2.0 endpoints** (`/v1/videos`): optimised for ByteDance Seedance 2.0.
+      Exposes richer Seedance-specific parameters (`seconds`, `resolution`, `ratio`,
+      `generate_audio`, `camera_fixed`, etc.) and supports advanced multimodal inputs
+      such as first/last frame references, video references, and audio references.
+
+    ## Typical flow
+
+    1. `POST /v1/video/generations` or `POST /v1/videos` — submit the task, receive `task_id`
+    2. `GET /v1/video/generations/{task_id}` or `GET /v1/videos/{task_id}` —
+       poll until `status` is `completed` or `failed`
+    3. Read the video URL from `url` / `metadata.url`, or download via
+       `GET /v1/videos/{task_id}/content`
+
+    ## Authentication
+
+    Every request must include your API key in the header:
+    ```
+    Authorization: Bearer YOUR_API_KEY
+    ```
+  contact:
+    name: InfinityBlue
+    url: https://getinfinityblue.com
+
+servers:
+  - url: https://api.getinfinityblue.com
+    description: Production
+
+security:
+  - bearerAuth: []
+
+tags:
+  - name: Videos
+    description: |
+      Generic video generation endpoints supporting Kling, Veo, and other vendors,
+      using a submit → poll → retrieve async task model.
+  - name: Seedance 2.0
+    description: |
+      ByteDance Seedance 2.0 dedicated video endpoints with richer parameters,
+      including first/last frame, video reference, and audio reference support.
+
+paths:
+  /v1/video/generations:
+    post:
+      tags:
+        - Videos
+      summary: Create video generation task
+      operationId: createVideoGeneration
+      description: |
+        Submit a video generation task supporting text-to-video and image-to-video.
+        Returns a `task_id` you use to poll progress via
+        `GET /v1/video/generations/{task_id}`.
+      x-mint:
+        metadata:
+          title: Create video generation task
+          sidebarTitle: Generic Video — Submit task
+          description: Submit a text-to-video or image-to-video task supporting Kling, Veo, and more
+        content: |
+          ## Available models
+
+          Pass any video generation model ID in `model`, for example:
+
+          | Model ID | Notes |
+          | --- | --- |
+          | `kling-v2-5-turbo` | Kling latest Turbo — balanced speed and quality |
+          | `kling-v2-1-master` | Kling flagship Master — highest quality |
+          | `veo_3_1` | Google Veo 3.1 — top-tier video quality |
+          | `veo_3_1-fast` | Google Veo 3.1 Fast — lower cost |
+
+          ## Call flow
+
+          1. `POST /v1/video/generations` — submit task, get `task_id`
+          2. `GET /v1/video/generations/{task_id}` — poll until `status=completed`
+          3. Read the `url` field from the response to download the video
+
+          ## Image-to-video
+
+          Set the `image` field (URL or Base64) to trigger image-to-video mode.
+          The model will animate the content of the provided image.
+
+          ## Extended parameters
+
+          For some models, `metadata` accepts model-specific fields such as
+          `negative_prompt`, `style`, or `quality_level`. Supported fields vary
+          by model — refer to the model's own documentation.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VideoGenerationRequest"
+            examples:
+              text_to_video_kling:
+                summary: Text-to-video (Kling)
+                value:
+                  model: kling-v2-5-turbo
+                  prompt: An astronaut walking on the Moon, Earth slowly rising in the background, cinematic shot, 4K
+                  duration: 5
+                  width: 1280
+                  height: 720
+              text_to_video_veo:
+                summary: Text-to-video (Veo)
+                value:
+                  model: veo_3_1
+                  prompt: A futuristic city at night, neon lights reflected on rain-wet streets, low-angle long take, stable shot
+                  duration: 8
+                  width: 1920
+                  height: 1080
+              image_to_video:
+                summary: Image-to-video
+                value:
+                  model: kling-v2-1-master
+                  prompt: Make the person in the image slowly turn their head, keep the background unchanged, camera gently pushes in
+                  image: https://example.com/portrait.jpg
+                  duration: 5
+                  width: 1280
+                  height: 720
+      responses:
+        "200":
+          description: Video generation task created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VideoGenerationTask"
+              example:
+                task_id: abcd1234efgh
+                status: queued
+        "400":
+          description: Invalid request parameters
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Invalid or missing API key
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /v1/video/generations/{task_id}:
+    get:
+      tags:
+        - Videos
+      summary: Get video generation task status
+      operationId: getVideoGeneration
+      description: |
+        Query the status and result of a generic video generation task.
+        Poll every 5–10 seconds until `status` becomes `completed` or `failed`.
+      x-mint:
+        metadata:
+          title: Get video generation task status
+          sidebarTitle: Generic Video — Poll status
+          description: Poll a generic video generation task for progress and the final video URL
+        content: |
+          ## Task status values
+
+          | Status | Meaning |
+          | --- | --- |
+          | `queued` | Waiting in queue |
+          | `in_progress` | Generation in progress |
+          | `completed` | Done — download the video from `url` |
+          | `failed` | Generation failed — check the `error` field |
+
+          ## Polling guidance
+
+          Tasks typically complete in 30 seconds to a few minutes depending on the
+          model and video length. Poll every 5–10 seconds and set a reasonable
+          timeout (e.g. 10 minutes).
+      parameters:
+        - name: task_id
+          in: path
+          description: Task ID returned by the create endpoint.
+          required: true
+          schema:
+            type: string
+          example: abcd1234efgh
+      responses:
+        "200":
+          description: Task status retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VideoGenerationTaskStatus"
+              examples:
+                in_progress:
+                  summary: In progress
+                  value:
+                    task_id: abcd1234efgh
+                    status: in_progress
+                completed:
+                  summary: Completed
+                  value:
+                    task_id: abcd1234efgh
+                    status: completed
+                    url: https://example.com/generated-video.mp4
+                    format: mp4
+                    metadata:
+                      duration: 5
+                      fps: 30
+                      width: 1280
+                      height: 720
+                      seed: 20231234
+        "400":
+          description: Invalid request parameters
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Invalid or missing API key
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Task not found, not completed yet, or content already expired
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /v1/videos:
+    post:
+      tags:
+        - Seedance 2.0
+      summary: Create Seedance video task
+      operationId: createSeedanceVideo
+      description: |
+        Create a Seedance 2.0 video generation task supporting text-to-video
+        and image-to-video. Returns a task object with an `id` field that you
+        pass to `GET /v1/videos/{task_id}` to poll progress.
+
+        Place commonly used parameters (`seconds`, `resolution`, `ratio`,
+        `generate_audio`, `watermark`, `camera_fixed`, `return_last_frame`)
+        at the top level of the request body rather than inside `metadata`
+        (same-named `metadata` fields exist only for backwards compatibility).
+        Use `metadata.content` for complex multimodal inputs such as first/last
+        frame references, video references, and audio references.
+      x-mint:
+        metadata:
+          title: Create Seedance video task
+          sidebarTitle: Seedance 2.0 — Submit task
+          description: Submit a Seedance 2.0 text-to-video or image-to-video task with rich generation parameters
+        content: |
+          ## Available models
+
+          | Model ID | Notes |
+          | --- | --- |
+          | `doubao-seedance-2-0-260128` | Seedance 2.0 standard — higher quality |
+          | `doubao-seedance-2-0-fast-260128` | Seedance 2.0 Fast — faster, lower cost |
+
+          ## Call flow
+
+          1. `POST /v1/videos` — submit task, get `id` (the task ID)
+          2. `GET /v1/videos/{task_id}` — poll until `status=completed`
+          3. Read the video URL from `metadata.url`, or download via
+             `GET /v1/videos/{task_id}/content`
+
+          ## Parameter precedence
+
+          Use **top-level parameters** (`seconds`, `resolution`, `ratio`, etc.).
+          Do not pass the same parameter in both the top level and `metadata` —
+          if you do, behaviour is server-determined.
+
+          ## Multimodal inputs
+
+          For first/last frames, reference videos, or reference audio, use
+          `metadata.content` to declare each asset's type
+          (`image_url` / `video_url` / `audio_url`) and role explicitly.
+          Including a `video_url` asset may trigger video-input pricing.
+
+          ## Resolution notes
+
+          - `480p`: lowest cost, fastest — ideal for drafts and previews
+          - `720p`: suitable for regular production
+          - `1080p`: availability depends on upstream account permissions —
+            test in your environment before using in production
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SeedanceVideoCreateRequest"
+            examples:
+              standard_text_to_video:
+                summary: Standard text-to-video
+                value:
+                  model: doubao-seedance-2-0-260128
+                  prompt: A white kitten slowly walking on a clean desk, soft daylight, cinematic lens, stable shot
+                  seconds: "5"
+                  resolution: 720p
+                  ratio: "16:9"
+                  generate_audio: false
+                  watermark: false
+                  camera_fixed: false
+              fast_text_to_video:
+                summary: Fast text-to-video
+                value:
+                  model: doubao-seedance-2-0-fast-260128
+                  prompt: A futuristic city street at night, a blue sports car racing through neon lights, low-angle shot, strong sense of speed, stable frame
+                  seconds: "4"
+                  resolution: 480p
+                  ratio: "16:9"
+                  generate_audio: false
+                  watermark: false
+              image_to_video:
+                summary: Image-to-video
+                value:
+                  model: doubao-seedance-2-0-260128
+                  prompt: Have the kitten in the image gently turn its head toward the camera, keep the background unchanged, camera slowly pushes in, natural motion
+                  image: https://example.com/cat.jpg
+                  seconds: "5"
+                  resolution: 720p
+                  ratio: adaptive
+                  generate_audio: false
+                  watermark: false
+              video_reference:
+                summary: Video reference / video editing
+                value:
+                  model: doubao-seedance-2-0-260128
+                  prompt: Follow the camera movement from reference video 1 and restyle the whole clip as a soft Japanese animation, preserving the original action rhythm
+                  seconds: "5"
+                  resolution: 720p
+                  ratio: adaptive
+                  generate_audio: false
+                  watermark: false
+                  metadata:
+                    content:
+                      - type: video_url
+                        role: reference_video
+                        video_url:
+                          url: https://example.com/reference.mp4
+      responses:
+        "200":
+          description: Seedance video task created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SeedanceVideoTask"
+              example:
+                id: video_abc123
+                object: video
+                model: doubao-seedance-2-0-fast-260128
+                status: queued
+                progress: 0
+                created_at: 1764347090922
+                seconds: "5"
+        "400":
+          description: Invalid request parameters
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Invalid or missing API key
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /v1/videos/{task_id}:
+    get:
+      tags:
+        - Seedance 2.0
+      summary: Get Seedance video task status
+      operationId: getSeedanceVideo
+      description: |
+        Retrieve the status, progress, and result of a Seedance video task.
+        Once the task is complete, the video file URL is available in
+        `metadata.url`.
+      x-mint:
+        metadata:
+          title: Get Seedance video task status
+          sidebarTitle: Seedance 2.0 — Poll status
+          description: Poll a Seedance video task for progress and the final video URL
+        content: |
+          ## Task status values
+
+          | Status | Meaning |
+          | --- | --- |
+          | `queued` | Waiting in queue |
+          | `in_progress` | Generation in progress; `progress` reflects percentage |
+          | `completed` | Done — video URL in `metadata.url` |
+          | `failed` | Generation failed — check the `error` field |
+
+          ## Polling guidance
+
+          Seedance tasks typically complete in 30 seconds to a few minutes.
+          Poll every 5–10 seconds and surface the `progress` value to users.
+
+          ## Retrieving the video
+
+          Two options once the task is complete:
+          - Use the CDN link in `metadata.url` directly (valid until `expires_at`)
+          - Call `GET /v1/videos/{task_id}/content` to proxy-download through the API
+      parameters:
+        - name: task_id
+          in: path
+          description: Video task ID — the `id` field returned by the create endpoint.
+          required: true
+          schema:
+            type: string
+          example: video_abc123
+      responses:
+        "200":
+          description: Task status retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SeedanceVideoTask"
+              examples:
+                queued:
+                  summary: Queued
+                  value:
+                    id: video_abc123
+                    object: video
+                    model: doubao-seedance-2-0-fast-260128
+                    status: queued
+                    progress: 0
+                    created_at: 1764347090922
+                    seconds: "5"
+                completed:
+                  summary: Completed
+                  value:
+                    id: video_abc123
+                    object: video
+                    model: doubao-seedance-2-0-fast-260128
+                    status: completed
+                    progress: 100
+                    created_at: 1764347090922
+                    completed_at: 1764347170000
+                    seconds: "5"
+                    size: 1280x720
+                    metadata:
+                      url: https://example.com/generated-video.mp4
+        "400":
+          description: Invalid request parameters
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Invalid or missing API key
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Task not found, not completed yet, or content already expired
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /v1/videos/{task_id}/content:
+    get:
+      tags:
+        - Seedance 2.0
+      summary: Get Seedance video content
+      operationId: getSeedanceVideoContent
+      description: |
+        Retrieve the raw video file for a completed Seedance video task.
+        The endpoint proxies or redirects to the video file stream,
+        returning raw `video/mp4` bytes. Only available when `status=completed`;
+        returns 404 if the task is not yet finished.
+      x-mint:
+        metadata:
+          title: Get Seedance video content
+          sidebarTitle: Seedance 2.0 — Download video
+          description: Proxy-download the MP4 file for a completed Seedance video task
+        content: |
+          ## When to use this endpoint
+
+          Use it when you need to proxy the video download through your own
+          server, or when direct access to the CDN URL in `metadata.url` is
+          not practical (e.g. server-side downloads, signed delivery pipelines).
+
+          ## Prerequisites
+
+          - Task `status` must be `completed`
+          - Task must not be expired (check `expires_at`)
+
+          ## Response format
+
+          On success the response body is a raw `video/mp4` byte stream with
+          HTTP status 200. Write the response body directly to a file or stream
+          it to your end user.
+
+          ## Alternative
+
+          If you only need a link, read `metadata.url` from the
+          `GET /v1/videos/{task_id}` response — no need to download through
+          this endpoint.
+      parameters:
+        - name: task_id
+          in: path
+          description: Video task ID — the `id` field returned by the create endpoint.
+          required: true
+          schema:
+            type: string
+          example: video_abc123
+      responses:
+        "200":
+          description: Video content retrieved successfully — raw MP4 byte stream
+          content:
+            video/mp4:
+              schema:
+                type: string
+                format: binary
+                description: Raw bytes of the MP4 video file.
+        "400":
+          description: Invalid request parameters
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Invalid or missing API key
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Task not found, not completed yet, or content already expired
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: API Key
+      description: |
+        Bearer token authentication, format: `Authorization: Bearer sk-xxxxxx`.
+        Get your API key in the [console](https://getinfinityblue.com).
+
+  schemas:
+    VideoGenerationRequest:
+      type: object
+      description: Generic video generation request body.
+      required:
+        - model
+        - prompt
+      properties:
+        model:
+          type: string
+          description: |
+            Model ID. Supports multi-vendor video models such as Kling and Veo.
+            Examples: `kling-v2-5-turbo`, `kling-v2-1-master`, `veo_3_1`, `veo_3_1-fast`.
+          examples:
+            - kling-v2-5-turbo
+        prompt:
+          type: string
+          description: Text prompt describing the video content, scene, camera work, and style.
+          examples:
+            - An astronaut walking on the Moon, Earth rising in the background, cinematic shot
+        image:
+          type: string
+          description: |
+            Reference image — URL or Base64 data URI. When set, triggers
+            image-to-video mode and the model animates the image content.
+          examples:
+            - https://example.com/image.jpg
+        duration:
+          type: number
+          description: Video duration in seconds.
+          examples:
+            - 5
+        width:
+          type: integer
+          description: Video width in pixels.
+          examples:
+            - 1280
+        height:
+          type: integer
+          description: Video height in pixels.
+          examples:
+            - 720
+        fps:
+          type: integer
+          description: Video frame rate (fps).
+          examples:
+            - 30
+        seed:
+          type: integer
+          description: Random seed. Using the same seed and parameters tends to produce similar results.
+          examples:
+            - 20231234
+        n:
+          type: integer
+          description: Number of videos to generate. Recommended to keep at 1 for async tasks.
+          examples:
+            - 1
+        response_format:
+          type: string
+          description: Response format. Use `url`.
+          examples:
+            - url
+        user:
+          type: string
+          description: End-user identifier for auditing and abuse monitoring; not used in generation.
+          examples:
+            - user-1234
+        metadata:
+          type: object
+          description: |
+            Extended parameters for model-specific fields such as
+            `negative_prompt`, `style`, or `quality_level`.
+            Supported fields vary by model.
+          additionalProperties: true
+
+    VideoGenerationTask:
+      type: object
+      description: Response from the generic video generation create endpoint.
+      properties:
+        task_id:
+          type: string
+          description: Task ID — use this to poll for status.
+          examples:
+            - abcd1234efgh
+        status:
+          type: string
+          description: Initial task status, typically `queued`.
+          examples:
+            - queued
+
+    VideoGenerationTaskStatus:
+      type: object
+      description: Status response for a generic video generation task.
+      properties:
+        task_id:
+          type: string
+          description: Task ID.
+          examples:
+            - abcd1234efgh
+        status:
+          type: string
+          description: Task status.
+          enum:
+            - queued
+            - in_progress
+            - completed
+            - failed
+          examples:
+            - completed
+        url:
+          type: string
+          description: Video file URL, populated when `status=completed`.
+          examples:
+            - https://example.com/generated-video.mp4
+        format:
+          type: string
+          description: Video format.
+          examples:
+            - mp4
+        metadata:
+          $ref: "#/components/schemas/VideoGenerationMetadata"
+        error:
+          $ref: "#/components/schemas/VideoGenerationError"
+
+    VideoGenerationMetadata:
+      type: object
+      description: Metadata about the generated video, including actual specs.
+      properties:
+        duration:
+          type: number
+          description: Actual video duration in seconds.
+          examples:
+            - 5
+        fps:
+          type: integer
+          description: Actual frame rate (fps).
+          examples:
+            - 30
+        width:
+          type: integer
+          description: Actual video width in pixels.
+          examples:
+            - 1280
+        height:
+          type: integer
+          description: Actual video height in pixels.
+          examples:
+            - 720
+        seed:
+          type: integer
+          description: Random seed that was actually used.
+          examples:
+            - 20231234
+
+    VideoGenerationError:
+      type: object
+      description: Error information for a failed video task.
+      properties:
+        code:
+          type: integer
+          description: Error code.
+        message:
+          type: string
+          description: Error message.
+
+    SeedanceVideoCreateRequest:
+      type: object
+      description: |
+        Seedance 2.0 video generation request. `model` and `prompt` are required.
+        Place common parameters at the top level; `metadata` is only for
+        backwards-compatible legacy fields and complex multimodal asset inputs.
+      required:
+        - model
+        - prompt
+      properties:
+        model:
+          type: string
+          description: |
+            Model ID. The standard version produces higher quality;
+            the Fast version is faster and cheaper.
+          enum:
+            - doubao-seedance-2-0-260128
+            - doubao-seedance-2-0-fast-260128
+          examples:
+            - doubao-seedance-2-0-260128
+        prompt:
+          type: string
+          description: |
+            Text prompt. Include subject, action, scene, camera style, lighting,
+            artistic style, and any constraints. Reference multimodal assets in
+            the prompt as "video 1", "image 1", "audio 1", etc.
+          examples:
+            - A white kitten slowly walking on a clean desk, soft daylight, cinematic lens, stable shot
+        seconds:
+          type: string
+          description: |
+            Recommended. Video duration in seconds — pass as a string (e.g. `"5"`).
+            Seedance 2.0 supports 4 to 15 seconds. Do not combine with `duration`
+            or `metadata.duration`.
+          enum:
+            - "4"
+            - "5"
+            - "6"
+            - "7"
+            - "8"
+            - "9"
+            - "10"
+            - "11"
+            - "12"
+            - "13"
+            - "14"
+            - "15"
+          examples:
+            - "5"
+        duration:
+          type: number
+          description: |
+            Legacy field. Video duration in seconds. New integrations should use
+            the top-level `seconds` field instead. Do not combine with `seconds`
+            or `metadata.duration`.
+          minimum: 4
+          maximum: 15
+          examples:
+            - 5
+        resolution:
+          type: string
+          description: |
+            Recommended. Output resolution. `480p` is cheapest and fastest;
+            `720p` suits regular production; `1080p` availability depends on
+            upstream account permissions — test before using in production.
+          enum:
+            - 480p
+            - 720p
+            - 1080p
+          examples:
+            - 720p
+        ratio:
+          type: string
+          description: |
+            Recommended. Output aspect ratio. `adaptive` or `auto` follows
+            the input asset ratio; specify explicitly when there is no input asset.
+          enum:
+            - adaptive
+            - auto
+            - "21:9"
+            - "16:9"
+            - "4:3"
+            - "1:1"
+            - "3:4"
+            - "9:16"
+          examples:
+            - "16:9"
+        size:
+          type: string
+          description: |
+            Sora-compatible field, format `1280x720`. New integrations should
+            prefer top-level `resolution` + `ratio` to avoid mismatches with
+            upstream enumerations.
+          examples:
+            - 1280x720
+        image:
+          type: string
+          description: |
+            Single reference image — URL or Base64. Suitable for simple
+            image-to-video or first-frame reference. For multiple images,
+            first/last frames, or character references, use `metadata.content`.
+          examples:
+            - https://example.com/image.jpg
+        ref_images:
+          type: array
+          description: |
+            Array of reference images — URLs or Base64. When you need to declare
+            explicit roles (first frame, last frame, plain reference), use
+            `metadata.content` instead.
+          items:
+            type: string
+          examples:
+            - - https://example.com/reference-1.jpg
+              - https://example.com/reference-2.jpg
+        generate_audio:
+          type: boolean
+          description: |
+            Recommended. Whether to generate synchronised audio. Enabling this
+            may increase generation time. For dialogue, describe lines, tone,
+            and acoustic environment in the prompt.
+          default: false
+          examples:
+            - false
+        watermark:
+          type: boolean
+          description: Recommended. Whether to add a watermark. Usually disabled for external API use.
+          default: false
+          examples:
+            - false
+        camera_fixed:
+          type: boolean
+          description: |
+            Recommended. Whether to lock the camera. Suited to product shots,
+            standing figures, stable compositions, and surveillance perspectives.
+            Enabling this reduces camera drift.
+          default: false
+          examples:
+            - false
+        return_last_frame:
+          type: boolean
+          description: |
+            Recommended. Whether to return the last frame of the generated video.
+            Useful for chaining clips — use the last frame as the first frame of
+            the next segment.
+          default: false
+          examples:
+            - false
+        seed:
+          type: integer
+          format: int64
+          description: |
+            Random seed. Using the same model, assets, parameters, and seed
+            tends to produce similar results, but exact reproducibility is
+            not guaranteed.
+          examples:
+            - 20231234
+        n:
+          type: integer
+          description: |
+            Number of videos to generate. Keep at 1 for async tasks;
+            submit multiple independent tasks if you need several clips
+            to simplify tracking and billing.
+          minimum: 1
+          maximum: 1
+          default: 1
+          examples:
+            - 1
+        response_format:
+          type: string
+          description: Response format. Use `url`.
+          enum:
+            - url
+          default: url
+          examples:
+            - url
+        user:
+          type: string
+          description: User identifier for auditing and abuse monitoring; not used in generation.
+          examples:
+            - user-1234
+        metadata:
+          $ref: "#/components/schemas/SeedanceMetadata"
+
+    SeedanceMetadata:
+      type: object
+      description: |
+        Seedance 2.0 extended parameters. In most cases, use the top-level request
+        fields instead of these `metadata` equivalents. `metadata.content` is still
+        the recommended way to pass complex multimodal assets.
+      additionalProperties: true
+      properties:
+        duration:
+          type: integer
+          description: Legacy. Video duration in seconds. Use top-level `seconds` instead.
+          minimum: 4
+          maximum: 15
+          examples:
+            - 5
+        resolution:
+          type: string
+          description: Legacy. Output resolution. Use top-level `resolution` instead.
+          enum:
+            - 480p
+            - 720p
+            - 1080p
+          examples:
+            - 720p
+        ratio:
+          type: string
+          description: Legacy. Output aspect ratio. Use top-level `ratio` instead.
+          enum:
+            - adaptive
+            - auto
+            - "21:9"
+            - "16:9"
+            - "4:3"
+            - "1:1"
+            - "3:4"
+            - "9:16"
+          examples:
+            - "16:9"
+        generate_audio:
+          type: boolean
+          description: Legacy. Audio generation switch. Use top-level `generate_audio` instead.
+          default: false
+        watermark:
+          type: boolean
+          description: Legacy. Watermark switch. Use top-level `watermark` instead.
+          default: false
+        camera_fixed:
+          type: boolean
+          description: Legacy. Camera lock switch. Use top-level `camera_fixed` instead.
+          default: false
+        return_last_frame:
+          type: boolean
+          description: Legacy. Return last frame switch. Use top-level `return_last_frame` instead.
+          default: false
+        seed:
+          type: integer
+          format: int64
+          description: Legacy. Random seed. Use top-level `seed` instead.
+          examples:
+            - 20231234
+        content:
+          type: array
+          description: |
+            Recommended for complex multimodal assets: image references, video
+            references, audio references, first/last frames, etc. Including a
+            `video_url` asset may trigger video-input pricing.
+          items:
+            $ref: "#/components/schemas/SeedanceContentItem"
+          examples:
+            - - type: image_url
+                role: first_frame
+                image_url:
+                  url: https://example.com/first-frame.jpg
+
+    SeedanceContentItem:
+      type: object
+      description: |
+        A multimodal reference asset entry. Populate `image_url`, `video_url`,
+        or `audio_url` according to the `type` field.
+      required:
+        - type
+      properties:
+        type:
+          type: string
+          description: Asset type.
+          enum:
+            - image_url
+            - video_url
+            - audio_url
+          examples:
+            - image_url
+        role:
+          type: string
+          description: |
+            Asset role. Compatibility with specific roles depends on the upstream
+            model version; omit when no special role is needed.
+          enum:
+            - first_frame
+            - last_frame
+            - reference_image
+            - reference_video
+            - reference_audio
+          examples:
+            - first_frame
+        image_url:
+          $ref: "#/components/schemas/SeedanceMediaURL"
+        video_url:
+          $ref: "#/components/schemas/SeedanceMediaURL"
+        audio_url:
+          $ref: "#/components/schemas/SeedanceMediaURL"
+
+    SeedanceMediaURL:
+      type: object
+      description: Media URL wrapper.
+      required:
+        - url
+      properties:
+        url:
+          type: string
+          format: uri
+          description: |
+            Publicly accessible URL of the media file. Do not use URLs that
+            require login, cookies, hotlink protection, Cloudflare challenges,
+            or private network addresses.
+          examples:
+            - https://example.com/input.mp4
+
+    SeedanceVideoTask:
+      type: object
+      description: Seedance video task object, compatible with the OpenAI / Sora video task format.
+      required:
+        - id
+        - object
+        - model
+        - status
+        - progress
+        - created_at
+        - seconds
+      properties:
+        id:
+          type: string
+          description: Video task ID.
+          examples:
+            - video_abc123
+        object:
+          type: string
+          description: Object type, always `video`.
+          enum:
+            - video
+          examples:
+            - video
+        model:
+          type: string
+          description: The model that processed the task.
+          enum:
+            - doubao-seedance-2-0-260128
+            - doubao-seedance-2-0-fast-260128
+          examples:
+            - doubao-seedance-2-0-fast-260128
+        status:
+          type: string
+          description: Task status.
+          enum:
+            - queued
+            - in_progress
+            - completed
+            - failed
+          examples:
+            - queued
+        progress:
+          type: integer
+          description: Task progress as a percentage (0–100).
+          minimum: 0
+          maximum: 100
+          examples:
+            - 0
+        created_at:
+          type: integer
+          format: int64
+          description: Task creation timestamp in milliseconds.
+          examples:
+            - 1764347090922
+        seconds:
+          type: string
+          description: Video duration in seconds.
+          examples:
+            - "5"
+        completed_at:
+          type: integer
+          format: int64
+          description: Task completion timestamp in milliseconds, populated when complete.
+          examples:
+            - 1764347170000
+        expires_at:
+          type: integer
+          format: int64
+          description: Expiry timestamp for the task and video file, in milliseconds.
+          examples:
+            - 1764433570000
+        size:
+          type: string
+          description: Video dimensions, e.g. `1280x720`.
+          examples:
+            - 1280x720
+        error:
+          $ref: "#/components/schemas/SeedanceVideoError"
+        metadata:
+          type: object
+          description: Additional metadata. Contains `url` once the task is complete.
+          additionalProperties: true
+          properties:
+            url:
+              type: string
+              format: uri
+              description: Video file URL.
+              examples:
+                - https://example.com/generated-video.mp4
+
+    SeedanceVideoError:
+      type: object
+      description: Error information for a failed Seedance video task.
+      properties:
+        message:
+          type: string
+          description: Error message.
+          examples:
+            - generation failed
+        code:
+          type: string
+          description: Error code.
+          examples:
+            - generation_failed
+
+    ErrorResponse:
+      type: object
+      description: Standard error response.
+      properties:
+        error:
+          type: object
+          properties:
+            message:
+              type: string
+              description: Error message.
+              examples:
+                - Invalid duration. Supported range is 4 to 15 seconds.
+            type:
+              type: string
+              description: Error type.
+              examples:
+                - invalid_request_error
+            param:
+              type: [string, "null"]
+              description: The parameter related to the error.
+              examples:
+                - seconds
+            code:
+              type: [string, "null"]
+              description: Error code.
+              examples:
+                - invalid_duration

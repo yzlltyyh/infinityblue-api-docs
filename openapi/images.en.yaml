@@ -1,0 +1,1116 @@
+openapi: 3.1.0
+info:
+  title: InfinityBlue API — Images
+  version: "1.0.0"
+  summary: Image generation and editing endpoints
+  description: |
+    InfinityBlue image endpoints support both the OpenAI native format and the
+    NanoBanana (Gemini native) format, covering text-to-image generation,
+    image editing, and multi-reference image fusion.
+
+    ## Authentication
+
+    Every request must include your API key in the header:
+
+    ```
+    Authorization: Bearer YOUR_API_KEY
+    ```
+
+    Create and manage your API keys in the [console](https://getinfinityblue.com).
+
+    ## Endpoint format conventions
+
+    | Path prefix | Compatible format |
+    | --- | --- |
+    | `/v1/images/*` | OpenAI Images API |
+    | `/v1/chat/completions` | OpenAI Chat Completions (NanoBanana OpenAI format) |
+    | `/v1beta/models/{model}:generateContent` | Google Gemini native (NanoBanana native format) |
+  contact:
+    name: InfinityBlue
+    url: https://getinfinityblue.com
+
+servers:
+  - url: https://api.getinfinityblue.com
+    description: Production
+
+security:
+  - bearerAuth: []
+
+tags:
+  - name: Images
+    description: |
+      OpenAI-compatible image generation and editing endpoints supporting
+      models such as `gpt-image-2`.
+  - name: NanoBanana
+    description: |
+      NanoBanana image generation endpoints available in both Gemini native
+      format and OpenAI chat format, supporting text-to-image, multi-reference
+      fusion, and style-unification workflows.
+
+paths:
+  /v1/images/generations:
+    post:
+      tags:
+        - Images
+      summary: Create image generation
+      operationId: createImageGeneration
+      description: |
+        Generate an image from a text prompt. Supports the `gpt-image-2` model
+        with flexible sizing, quality control, background transparency, and
+        streaming partial-image delivery.
+
+        Fully compatible with the OpenAI Images API — just point your SDK's
+        base URL at InfinityBlue.
+      x-mint:
+        metadata:
+          title: Create image generation
+          sidebarTitle: Text-to-image (OpenAI format)
+          description: Generate images from text prompts with configurable size, quality, and output format
+        content: |
+          ## Models you can use
+
+          | Model ID | Notes |
+          | --- | --- |
+          | `gpt-image-2` | GPT Image 2 — flexible sizing, transparent background, streaming partial images |
+
+          ## Size options (`gpt-image-2`)
+
+          The `size` parameter defaults to `auto` and supports flexible dimensions:
+          - Maximum edge length: `3840px`
+          - Both width and height must be multiples of `16`
+          - Aspect ratio (long side to short side) must not exceed `3:1`
+          - Total pixel count between `655,360` and `8,294,400`
+
+          Common presets: `1024x1024`, `1536x1024` (landscape), `1024x1536` (portrait),
+          `2048x2048`, `2048x1152`, `3840x2160`, `2160x3840`.
+
+          ## Streaming
+
+          Set `stream: true` to progressively receive partial images during generation.
+          Use `partial_images` to control the number of intermediate frames (`0`–`3`);
+          each partial image costs an additional `100` output tokens.
+
+          ## Quality and format
+
+          - `quality`: `low` (fastest) / `medium` / `high` (best quality) / `auto` (default)
+          - `output_format`: `png` (default) / `jpeg` / `webp`
+          - `output_compression`: applies to `jpeg` / `webp` only, range `0`–`100`
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ImageGenerationRequest"
+            examples:
+              basic:
+                summary: Basic text-to-image
+                value:
+                  model: gpt-image-2
+                  prompt: A cute baby sea otter floating on a blue ocean
+                  n: 1
+                  size: 1024x1024
+              high_quality:
+                summary: High-quality landscape image
+                value:
+                  model: gpt-image-2
+                  prompt: Futuristic city at night, neon lights reflecting on rain-soaked streets, cyberpunk style
+                  size: 1536x1024
+                  quality: high
+                  output_format: png
+              streaming:
+                summary: Streaming generation with partial frames
+                value:
+                  model: gpt-image-2
+                  prompt: A serene Japanese garden with cherry blossoms falling and sunlight through the leaves
+                  stream: true
+                  partial_images: 2
+                  size: 1024x1024
+              transparent_bg:
+                summary: Transparent background (PNG)
+                value:
+                  model: gpt-image-2
+                  prompt: A red apple icon on white background, flat design style
+                  background: transparent
+                  output_format: png
+                  size: 1024x1024
+      responses:
+        "200":
+          description: Image generated successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImageGenerationResponse"
+        "400":
+          description: Invalid request parameters
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Invalid or missing API key
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /v1/images/edits:
+    post:
+      tags:
+        - Images
+      summary: Create image edit
+      operationId: createImageEdit
+      description: |
+        Create an edited or extended image from an original image and a text
+        prompt. Supports the `gpt-image-2` model with optional mask regions to
+        constrain editing, and accepts multiple reference images for style
+        unification or asset fusion.
+
+        The request body is `multipart/form-data`, containing image files and
+        text fields.
+      x-mint:
+        metadata:
+          title: Create image edit
+          sidebarTitle: Image editing (OpenAI format)
+          description: Edit images using a reference image and text prompt, with support for masks and multiple references
+        content: |
+          ## Mask fields
+
+          - `mask`: PNG file where fully transparent areas (alpha=0) indicate
+            the regions to edit.
+          - `input_image_mask`: Preferred mask field for `gpt-image-2`. Must
+            contain an alpha channel and match the input image dimensions.
+
+          ## Multiple reference images
+
+          Pass 1–16 additional reference images via the `images` field
+          (URL, base64, or File ID) alongside the primary `image` to enable
+          multi-reference generation.
+
+          ## `gpt-image-2` parameters
+
+          | Parameter | Notes |
+          | --- | --- |
+          | `images` (multi-reference) | Supports 1–16 reference images |
+          | `input_image_mask` | Preferred mask field; must contain an alpha channel |
+          | `input_fidelity` | Auto high-fidelity; the API ignores manual settings |
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/ImageEditRequest"
+      responses:
+        "200":
+          description: Edited image generated successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImageGenerationResponse"
+        "400":
+          description: Invalid request parameters
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Invalid or missing API key
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /v1beta/models/{model}:generateContent:
+    post:
+      tags:
+        - NanoBanana
+      summary: NanoBanana image generation (native format)
+      operationId: createNanoBananaImageNative
+      description: |
+        Generate images using NanoBanana models via the Gemini native protocol.
+        Supports text-to-image, single-reference editing, and multi-reference
+        fusion. Configure the output aspect ratio and resolution level in
+        `generationConfig.imageConfig`.
+
+        Pass the NanoBanana model ID as the `model` path parameter,
+        e.g. `nanobanana_pro`.
+      x-mint:
+        metadata:
+          title: NanoBanana native format
+          sidebarTitle: NanoBanana (Gemini format)
+          description: Call NanoBanana via the Gemini native protocol with multi-reference and high-resolution support
+        content: |
+          ## Models you can use
+
+          | Model ID | Notes |
+          | --- | --- |
+          | `nanobanana` | Standard — balanced speed and quality |
+          | `nanobanana_pro` | High-quality — ideal for product images and precise style unification |
+          | `nanobanana_2` | 2nd generation — budget tier **only supports the OpenAI chat format** (see separate endpoint) |
+
+          ## Multiple reference images
+
+          Append multiple `inline_data` objects consecutively inside
+          `contents[].parts`. Each object holds the Base64 data of one reference
+          image, enabling multi-reference input.
+
+          ## Resolution configuration
+
+          Inside `generationConfig.imageConfig`:
+          - `aspectRatio`: `1:1`, `3:4`, `4:3`, `9:16`, `16:9`
+          - `imageSize`: `1K`, `2K`, `4K`
+
+          ## Thinking content
+
+          Set `generationConfig.thinkingConfig.includeThoughts: true` to
+          include the model's reasoning trace in the response.
+      parameters:
+        - name: model
+          in: path
+          required: true
+          description: |
+            NanoBanana model ID, e.g. `nanobanana_pro`.
+            Accepted values: `nanobanana`, `nanobanana_pro`.
+          schema:
+            type: string
+          example: nanobanana_pro
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NanoBananaRequest"
+            examples:
+              text_to_image:
+                summary: Text-to-image (basic)
+                value:
+                  contents:
+                    - role: user
+                      parts:
+                        - text: Draw a cat sitting on a rooftop under moonlight
+                  generationConfig:
+                    responseModalities:
+                      - TEXT
+                      - IMAGE
+                    imageConfig:
+                      aspectRatio: "16:9"
+                      imageSize: 4K
+              with_thinking:
+                summary: Include thinking content
+                value:
+                  contents:
+                    - role: user
+                      parts:
+                        - text: Draw a cat sitting on a rooftop under moonlight
+                  generationConfig:
+                    thinkingConfig:
+                      includeThoughts: true
+                    responseModalities:
+                      - TEXT
+                      - IMAGE
+                    imageConfig:
+                      aspectRatio: "16:9"
+                      imageSize: 4K
+              multi_reference:
+                summary: Multi-reference image fusion
+                value:
+                  contents:
+                    - role: user
+                      parts:
+                        - text: Combine these two reference images to generate a unified-style product promotional image, preserving the main subject's silhouette, with a more premium, clean, and bright overall look
+                        - inline_data:
+                            mimeType: image/jpeg
+                            data: "<base64_image_1>"
+                        - inline_data:
+                            mimeType: image/jpeg
+                            data: "<base64_image_2>"
+                  generationConfig:
+                    responseModalities:
+                      - TEXT
+                      - IMAGE
+                    imageConfig:
+                      aspectRatio: "1:1"
+                      imageSize: 2K
+      responses:
+        "200":
+          description: Image generated successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NanoBananaResponse"
+        "400":
+          description: Invalid request parameters
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Invalid or missing API key
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /v1/chat/completions:
+    post:
+      tags:
+        - NanoBanana
+      summary: NanoBanana image generation (OpenAI chat format)
+      operationId: createNanoBananaImageViaChat
+      description: |
+        Generate images using NanoBanana models via the OpenAI Chat Completions
+        format. Ideal for users already using the OpenAI SDK, or when using the
+        `nanobanana_2` budget-tier model — which **only supports this format**
+        and cannot be used with the Gemini native endpoint.
+
+        The generated image is embedded in the response message's `content`
+        field as a Markdown inline image:
+        `![image](data:image/jpeg;base64,<base64data>)`
+
+        Configure aspect ratio and resolution via `extra_body.google.image_config`.
+
+        > **Note**: This endpoint shares the path `/v1/chat/completions` with
+        > the chat completions endpoint. InfinityBlue automatically routes the
+        > request to the image-generation backend when a NanoBanana model ID is
+        > passed in `model`. In the Mintlify documentation, this page is
+        > rendered as a standalone image generation page; if you integrate with
+        > doc build tooling, confirm that path reuse does not cause operationId
+        > conflicts.
+      x-mint:
+        metadata:
+          title: NanoBanana OpenAI chat format
+          sidebarTitle: NanoBanana (OpenAI format)
+          description: Generate images via the OpenAI chat endpoint — ideal for the budget tier and OpenAI SDK users
+        content: |
+          ## Models you can use
+
+          | Model ID | Notes |
+          | --- | --- |
+          | `nanobanana` | Standard version |
+          | `nanobanana_pro` | High-quality version |
+          | `nanobanana_2` | 2nd generation — **budget tier only, this format exclusively** |
+
+          ## Image configuration
+
+          Pass Google extension parameters through the `extra_body` field:
+
+          ```json
+          {
+            "extra_body": {
+              "google": {
+                "image_config": {
+                  "aspect_ratio": "16:9",
+                  "image_size": "2K"
+                }
+              }
+            }
+          }
+          ```
+
+          ## Response format
+
+          The image is embedded in `choices[0].message.content` as Markdown:
+
+          ```
+          ![image](data:image/jpeg;base64,/9j/4AAQ...)
+          ```
+
+          ## Relationship to the chat endpoint
+
+          The path `/v1/chat/completions` is shared with the chat completions
+          endpoint. This page specifically describes the image-generation
+          behavior and the unique `extra_body` parameters when `model` is a
+          NanoBanana ID.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NanoBananaChatRequest"
+            examples:
+              basic:
+                summary: Basic text-to-image
+                value:
+                  model: nanobanana_pro
+                  stream: false
+                  messages:
+                    - role: user
+                      content: Draw a cat sitting on a rooftop under moonlight
+                  extra_body:
+                    google:
+                      image_config:
+                        aspect_ratio: "16:9"
+                        image_size: 2K
+              nanobanana2_budget:
+                summary: NanoBanana 2 (budget tier)
+                value:
+                  model: nanobanana_2
+                  stream: false
+                  messages:
+                    - role: user
+                      content: A panda sitting in a bamboo forest eating bamboo, watercolor style
+                  extra_body:
+                    google:
+                      image_config:
+                        aspect_ratio: "1:1"
+                        image_size: 1K
+      responses:
+        "200":
+          description: Image generated successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NanoBananaChatResponse"
+        "400":
+          description: Invalid request parameters
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Invalid or missing API key
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: API Key
+      description: |
+        Bearer token authentication, format: `Authorization: Bearer sk-xxxxxx`.
+        Get your API key in the [console](https://getinfinityblue.com).
+
+  schemas:
+    ImageGenerationRequest:
+      type: object
+      required:
+        - model
+        - prompt
+      description: Image generation request body.
+      properties:
+        model:
+          type: string
+          description: |
+            Model ID to use for image generation. Pass `gpt-image-2`.
+          examples:
+            - gpt-image-2
+        prompt:
+          type: string
+          description: |
+            A text description of the desired image. For `gpt-image-2`,
+            the maximum length is 32,000 characters.
+          examples:
+            - A cute baby sea otter floating on a blue ocean
+        n:
+          type: integer
+          minimum: 1
+          maximum: 10
+          default: 1
+          description: |
+            Number of images to generate. For `gpt-image-2`, defaults to `1`;
+            typically supports `1` to `10`, depending on account tier.
+        size:
+          type: string
+          default: auto
+          description: |
+            Size of the generated image. For `gpt-image-2`, defaults to `auto`
+            with flexible dimensions (max edge 3840px, both dimensions multiples
+            of 16, aspect ratio ≤ 3:1, total pixels 655,360–8,294,400).
+            Common presets: `1024x1024`, `1536x1024`, `1024x1536`, `2048x2048`,
+            `2048x1152`, `3840x2160`, `2160x3840`.
+          examples:
+            - 1024x1024
+            - 1536x1024
+            - auto
+        background:
+          type: string
+          description: |
+            Background setting for the generated image. For `gpt-image-2`,
+            defaults to `auto`; supports `transparent` (requires `output_format`
+            `png` or `webp`), `opaque`, or `auto`.
+          enum:
+            - opaque
+            - transparent
+            - auto
+        moderation:
+          type: string
+          description: |
+            Content moderation level. For `gpt-image-2`, defaults to `auto`
+            (standard); `low` applies a more permissive policy.
+          enum:
+            - auto
+            - low
+        quality:
+          type: string
+          description: |
+            Controls the quality of the generated image. For `gpt-image-2`,
+            defaults to `auto`. Options: `low` (fastest), `medium`, `high`
+            (best quality).
+          enum:
+            - low
+            - medium
+            - high
+            - auto
+        stream:
+          type: boolean
+          default: false
+          description: |
+            Whether to stream partial images progressively. For `gpt-image-2`,
+            set to `true` to receive intermediate frames during generation.
+        style:
+          type: string
+          description: Image style hint (supported by select models).
+        output_format:
+          type: string
+          description: |
+            Output format of the generated image. For `gpt-image-2`, defaults
+            to `png`; options: `png`, `jpeg`, `webp`. Only GPT Image models
+            support this parameter.
+          enum:
+            - png
+            - jpeg
+            - webp
+        output_compression:
+          type: integer
+          minimum: 0
+          maximum: 100
+          description: |
+            Output compression quality (0–100). For `gpt-image-2`, applies
+            only when `output_format` is `jpeg` or `webp`.
+        partial_images:
+          type: integer
+          minimum: 0
+          maximum: 3
+          default: 0
+          description: |
+            Number of intermediate partial frames when streaming (0–3). For
+            `gpt-image-2`, each partial image costs an additional 100 output
+            tokens. Only effective when `stream: true`.
+        user:
+          type: string
+          description: |
+            A unique identifier for your end user, useful for monitoring and
+            abuse detection.
+
+    ImageGenerationResponse:
+      type: object
+      description: Image generation response body.
+      properties:
+        created:
+          type: integer
+          description: Unix timestamp (seconds) of creation.
+          examples:
+            - 1713833628
+        data:
+          type: array
+          description: List of generated images.
+          items:
+            type: object
+            properties:
+              b64_json:
+                type: string
+                description: Base64-encoded image data (returned when `response_format=b64_json`).
+              url:
+                type: string
+                description: Temporary URL to access the image (returned when `response_format=url`).
+        usage:
+          $ref: "#/components/schemas/ImageUsage"
+
+    ImageUsage:
+      type: object
+      description: Token usage statistics for the request.
+      properties:
+        total_tokens:
+          type: integer
+          description: Total tokens consumed.
+        input_tokens:
+          type: integer
+          description: Tokens consumed by the input.
+        output_tokens:
+          type: integer
+          description: Tokens consumed by the output (including image generation tokens).
+        input_tokens_details:
+          type: object
+          description: Breakdown of input token usage.
+          properties:
+            text_tokens:
+              type: integer
+              description: Text tokens consumed.
+            image_tokens:
+              type: integer
+              description: Image tokens consumed.
+
+    ImageEditRequest:
+      type: object
+      required:
+        - image
+        - prompt
+      description: Image edit request body (`multipart/form-data`).
+      properties:
+        image:
+          type: string
+          format: binary
+          description: |
+            The primary image file to edit. For `gpt-image-2`, it may serve as
+            one of the reference inputs. If no mask is provided, use
+            `input_image_mask` to indicate the edit area.
+        images:
+          type: array
+          description: |
+            Additional reference images, 1–16 items. Accepts URLs, base64
+            strings, or File IDs. Use this field to supply multiple reference
+            images; other parameter rules follow the generation endpoint.
+          items:
+            type: string
+        mask:
+          type: string
+          format: binary
+          description: |
+            Mask image file where fully transparent areas (alpha=0) indicate
+            the regions to edit. For `gpt-image-2`, prefer `input_image_mask`
+            instead, as it provides better alpha-channel integration.
+        input_image_mask:
+          type: string
+          format: binary
+          description: |
+            `gpt-image-2`-specific mask field. Must contain an alpha channel
+            and match the input image dimensions to specify the edit region.
+        prompt:
+          type: string
+          description: A text description of the desired edit. Maximum 1,000 characters.
+          examples:
+            - Replace the cat in the image with a Shiba Inu, keeping the background unchanged
+        n:
+          type: string
+          description: Number of images to generate. Must be between 1 and 10.
+        size:
+          type: string
+          description: |
+            Size of the generated image. For `gpt-image-2`, follows the same
+            rules as the generation endpoint: defaults to `auto` with flexible
+            dimensions and common presets such as `1024x1024` and `1536x1024`.
+          examples:
+            - 1024x1024
+        response_format:
+          type: string
+          description: Format in which the generated image is returned. Must be `url` or `b64_json`.
+          enum:
+            - url
+            - b64_json
+        input_fidelity:
+          type: string
+          description: |
+            Input fidelity setting. For `gpt-image-2`, high fidelity is
+            enforced automatically; the API ignores this parameter.
+        model:
+          type: string
+          description: |
+            The image model to use. `gpt-image-2` is supported; when using
+            `gpt-image-2`, the `images` and `input_image_mask` parameters
+            become available.
+          examples:
+            - gpt-image-2
+        user:
+          type: string
+          description: A unique identifier for your end user, useful for abuse monitoring.
+
+    NanoBananaRequest:
+      type: object
+      required:
+        - contents
+        - generationConfig
+      description: NanoBanana native-format image generation/editing request body.
+      properties:
+        contents:
+          type: array
+          description: |
+            A list of conversation turns. Typically one `user` message; its
+            `parts` array can contain a text prompt and one or more reference
+            images.
+          items:
+            $ref: "#/components/schemas/NanoBananaContent"
+        generationConfig:
+          $ref: "#/components/schemas/NanoBananaGenerationConfig"
+
+    NanoBananaContent:
+      type: object
+      required:
+        - role
+        - parts
+      description: A single conversation turn.
+      properties:
+        role:
+          type: string
+          description: The role of the message author. Typically `user` for image generation requests.
+          examples:
+            - user
+        parts:
+          type: array
+          description: |
+            A list of content parts, supporting mixed text and image data.
+            The first part is usually a text prompt (`text`); subsequent parts
+            can be `inline_data` objects representing reference images.
+          items:
+            $ref: "#/components/schemas/NanoBananaPart"
+
+    NanoBananaPart:
+      type: object
+      description: |
+        A single content part. Use either `text` for a text prompt or
+        `inline_data` for image data — not both in the same part object.
+        To supply multiple reference images, add multiple `inline_data` parts
+        consecutively.
+      properties:
+        text:
+          type: string
+          description: |
+            Text prompt describing the generation target, style, composition,
+            or subject-preservation requirements.
+          examples:
+            - Combine these two reference images into a unified-style product promotional image, preserving the main subject silhouette, with a more premium and clean look
+        inline_data:
+          $ref: "#/components/schemas/NanoBananaInlineData"
+
+    NanoBananaInlineData:
+      type: object
+      required:
+        - mimeType
+        - data
+      description: |
+        Inline image data for passing reference or input images. Supply multiple
+        `inline_data` parts within the same `parts` array for multi-reference
+        input; the model synthesizes all images with the text prompt.
+      properties:
+        mimeType:
+          type: string
+          description: Image MIME type, e.g. `image/jpeg`, `image/png`, `image/webp`. Must match the actual format.
+          examples:
+            - image/jpeg
+        data:
+          type: string
+          description: |
+            Base64-encoded image data, without the `data:image/...;base64,`
+            prefix. For multi-image input, each image corresponds to a separate
+            `inline_data.data` field.
+          examples:
+            - "<base64_encoded_image_data>"
+
+    NanoBananaGenerationConfig:
+      type: object
+      required:
+        - responseModalities
+        - imageConfig
+      description: Generation configuration controlling output modalities, image dimensions, and optional thinking content.
+      properties:
+        thinkingConfig:
+          type: object
+          description: Configuration for returning model thinking content. Optional for image generation.
+          properties:
+            includeThoughts:
+              type: boolean
+              description: Whether to return the model's reasoning trace. Set to `true` to include it.
+              examples:
+                - false
+        responseModalities:
+          type: array
+          description: |
+            List of response modalities specifying what data types to return.
+            Common values for image generation: `TEXT` (caption/description)
+            and `IMAGE` (the generated image).
+          items:
+            type: string
+            enum:
+              - TEXT
+              - IMAGE
+          examples:
+            - - TEXT
+              - IMAGE
+        imageConfig:
+          $ref: "#/components/schemas/NanoBananaImageConfig"
+
+    NanoBananaImageConfig:
+      type: object
+      required:
+        - aspectRatio
+        - imageSize
+      description: Image output configuration specifying aspect ratio and resolution level.
+      properties:
+        aspectRatio:
+          type: string
+          description: |
+            Output image aspect ratio. Choose based on the intended use case.
+            Options: `1:1`, `3:4`, `4:3`, `9:16`, `16:9`.
+          examples:
+            - "1:1"
+            - "16:9"
+        imageSize:
+          type: string
+          description: |
+            Output image resolution level. Higher values produce sharper images
+            at the cost of longer generation time.
+            Options: `1K`, `2K`, `4K`.
+          examples:
+            - 2K
+            - 4K
+
+    NanoBananaResponse:
+      type: object
+      description: NanoBanana native-format response body.
+      properties:
+        candidates:
+          type: array
+          description: List of generated candidate results.
+          items:
+            type: object
+            properties:
+              content:
+                type: object
+                description: Content of the candidate result.
+                properties:
+                  role:
+                    type: string
+                    description: Role of the message author (typically `model`).
+                  parts:
+                    type: array
+                    description: Content parts containing text and/or image data.
+                    items:
+                      type: object
+                      description: A single content part containing text or inline image data.
+              finishReason:
+                type: string
+                description: The reason generation stopped.
+              safetyRatings:
+                type: array
+                description: Safety rating list for the candidate.
+                items:
+                  type: object
+        usageMetadata:
+          type: object
+          description: Token usage statistics.
+          properties:
+            promptTokenCount:
+              type: integer
+              description: Tokens consumed by the prompt.
+            candidatesTokenCount:
+              type: integer
+              description: Tokens consumed by the candidates.
+            totalTokenCount:
+              type: integer
+              description: Total tokens consumed.
+
+    NanoBananaChatRequest:
+      type: object
+      required:
+        - model
+        - messages
+      description: NanoBanana OpenAI chat-format image generation request body.
+      properties:
+        model:
+          type: string
+          description: |
+            NanoBanana model ID. Options: `nanobanana`, `nanobanana_pro`,
+            `nanobanana_2`. The budget-tier `nanobanana_2` only supports this
+            format and cannot be used with the Gemini native endpoint.
+          examples:
+            - nanobanana_pro
+            - nanobanana_2
+        stream:
+          type: boolean
+          default: false
+          description: Whether to stream the response. Set to `false` for image generation.
+        messages:
+          type: array
+          description: Conversation messages containing the image generation prompt.
+          items:
+            type: object
+            required:
+              - role
+              - content
+            properties:
+              role:
+                type: string
+                description: The role of the message author.
+                enum:
+                  - user
+                  - system
+                  - assistant
+              content:
+                type: string
+                description: Message content — for image generation, this is the text prompt.
+        extra_body:
+          type: object
+          description: |
+            Extension parameters. Pass image configuration (aspect ratio and
+            resolution) via `google.image_config`.
+          properties:
+            google:
+              type: object
+              description: Google extension parameters.
+              properties:
+                image_config:
+                  type: object
+                  description: Image generation configuration.
+                  required:
+                    - aspect_ratio
+                    - image_size
+                  properties:
+                    aspect_ratio:
+                      type: string
+                      description: |
+                        Output image aspect ratio. Options: `1:1`, `3:4`,
+                        `4:3`, `9:16`, `16:9`.
+                      examples:
+                        - "16:9"
+                    image_size:
+                      type: string
+                      description: |
+                        Output image resolution level. Options: `1K`, `2K`, `4K`.
+                      examples:
+                        - 2K
+
+    NanoBananaChatResponse:
+      type: object
+      description: NanoBanana OpenAI chat-format response body. The image is embedded in the message content as a Markdown inline image.
+      properties:
+        id:
+          type: string
+          description: Unique identifier for this request.
+          examples:
+            - chatcmpl-20251211160744809365000fdOhL0KY
+        model:
+          type: string
+          description: The model that processed the request.
+          examples:
+            - nanobanana_pro
+        object:
+          type: string
+          description: Object type.
+          examples:
+            - chat.completion
+        created:
+          type: integer
+          description: Unix timestamp (seconds) of creation.
+          examples:
+            - 1765440499
+        choices:
+          type: array
+          description: List of generated results.
+          items:
+            type: object
+            properties:
+              index:
+                type: integer
+                description: Zero-based index of this result.
+              message:
+                type: object
+                description: The generated message. The `content` field contains the Markdown inline image.
+                properties:
+                  role:
+                    type: string
+                    examples:
+                      - assistant
+                  content:
+                    type: string
+                    description: |
+                      Message content. The image is embedded as a Markdown
+                      inline image:
+                      `![image](data:image/jpeg;base64,<base64data>)`
+                    examples:
+                      - "![image](data:image/jpeg;base64,/9j/4AAQ...)"
+              finish_reason:
+                type: string
+                description: The reason generation stopped.
+                examples:
+                  - stop
+        usage:
+          type: object
+          description: Token usage statistics.
+          properties:
+            prompt_tokens:
+              type: integer
+              description: Tokens consumed by the prompt.
+            completion_tokens:
+              type: integer
+              description: Tokens consumed by the completion (including image generation tokens).
+            total_tokens:
+              type: integer
+              description: Total tokens consumed.
+
+    ErrorResponse:
+      type: object
+      description: Standard error response.
+      properties:
+        error:
+          type: object
+          properties:
+            message:
+              type: string
+              description: Error message.
+              examples:
+                - Invalid size. Supported sizes are 1024x1024, 1536x1024, 1024x1536.
+            type:
+              type: string
+              description: Error type.
+              examples:
+                - invalid_request_error
+            param:
+              type: [string, "null"]
+              description: The parameter related to the error.
+              examples:
+                - size
+            code:
+              type: [string, "null"]
+              description: Error code.
+              examples:
+                - invalid_size

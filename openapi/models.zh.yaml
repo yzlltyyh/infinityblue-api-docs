@@ -1,0 +1,424 @@
+openapi: 3.1.0
+info:
+  title: InfinityBlue API — 模型列表
+  version: "1.0.0"
+  summary: 列出当前可用的 AI 模型
+  description: |
+    本文件包含 InfinityBlue 模型列表相关接口，共两个端点：
+
+    - `GET /v1/models` — OpenAI 兼容格式，适合所有 OpenAI SDK
+    - `GET /v1beta/models` — Gemini 原生格式，适合 Google Generative AI SDK
+
+    两个端点均返回同一组底层模型，格式不同，按需选用即可。
+    完整可用模型列表为动态数据，以实际接口返回为准；
+    价格信息见 [模型价格页](https://api.getinfinityblue.com/pricing)。
+
+    ## 认证
+
+    所有请求须在请求头携带 API Key：
+
+    ```
+    Authorization: Bearer YOUR_API_KEY
+    ```
+
+    在 [控制台](https://getinfinityblue.com) 创建和管理你的 API Key。
+  contact:
+    name: InfinityBlue
+    url: https://getinfinityblue.com
+
+servers:
+  - url: https://api.getinfinityblue.com
+    description: 生产环境
+
+security:
+  - bearerAuth: []
+
+tags:
+  - name: 模型（Models）
+    description: |
+      列出 InfinityBlue 当前可用的所有 AI 模型。
+      支持 OpenAI 兼容格式与 Gemini 原生格式两种响应结构。
+
+paths:
+  /v1/models:
+    get:
+      tags:
+        - 模型（Models）
+      summary: 列出可用模型（OpenAI 格式）
+      operationId: listModels
+      description: |
+        以 OpenAI 兼容格式返回当前所有可用模型的列表。
+        兼容 OpenAI 官方 SDK——把 base URL 指向 InfinityBlue 后可直接调用
+        `client.models.list()`，无需修改任何代码。
+
+        返回的模型列表为动态数据，随 InfinityBlue 接入新模型实时更新。
+      x-mint:
+        metadata:
+          title: 列出可用模型（OpenAI 格式）
+          sidebarTitle: 列出模型 · OpenAI 格式
+          description: 以 OpenAI 兼容格式返回 InfinityBlue 当前全部可用模型
+        content: |
+          ## 返回的模型列表
+
+          以下是部分真实可用的模型 ID（完整列表以接口返回为准）：
+
+          | 模型 ID | 说明 |
+          | --- | --- |
+          | `gpt-5.4` | GPT-5 系列旗舰，顶级推理 / 编码 / Agentic，1M 上下文 |
+          | `gpt-5.4-mini` | 轻量均衡版，适合高频调用与兜底 |
+          | `gemini-3.1-pro-preview` | Gemini 旗舰，强多模态，1M 上下文 |
+          | `gemini-2.5-pro` | Gemini 2.5 Pro，强推理与代码 |
+          | `deepseek-v4-pro` | DeepSeek 高性价比推理模型 |
+          | `gpt-image-2` | GPT Image 生成模型 |
+          | `doubao-seedance-2-0-260128` | 字节豆包 Seedance 视频生成模型 |
+
+          更多模型和价格见 [模型价格页](https://api.getinfinityblue.com/pricing)。
+
+          ## 使用 OpenAI SDK
+
+          ```python
+          from openai import OpenAI
+
+          client = OpenAI(
+              api_key="YOUR_API_KEY",
+              base_url="https://api.getinfinityblue.com/v1"
+          )
+
+          models = client.models.list()
+          for model in models.data:
+              print(model.id)
+          ```
+
+      responses:
+        "200":
+          description: 成功返回模型列表
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ModelListResponse"
+              examples:
+                default:
+                  summary: 典型响应
+                  value:
+                    object: list
+                    data:
+                      - id: gpt-5.4
+                        object: model
+                        created: 1700000000
+                        owned_by: openai
+                      - id: gpt-5.4-mini
+                        object: model
+                        created: 1700000001
+                        owned_by: openai
+                      - id: gemini-3.1-pro-preview
+                        object: model
+                        created: 1700000002
+                        owned_by: google
+                      - id: gemini-2.5-pro
+                        object: model
+                        created: 1700000003
+                        owned_by: google
+                      - id: deepseek-v4-pro
+                        object: model
+                        created: 1700000004
+                        owned_by: deepseek
+                      - id: gpt-image-2
+                        object: model
+                        created: 1700000005
+                        owned_by: openai
+                      - id: doubao-seedance-2-0-260128
+                        object: model
+                        created: 1700000006
+                        owned_by: bytedance
+        "400":
+          description: 请求参数错误
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: API Key 无效或缺失
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: 请求频率超限
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: 服务器内部错误
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /v1beta/models:
+    get:
+      tags:
+        - 模型（Models）
+      summary: 列出可用模型（Gemini 格式）
+      operationId: listModelsGemini
+      description: |
+        以 Google Gemini 原生格式返回当前所有可用模型的列表。
+        兼容 Google Generative AI SDK——把 base URL 指向 InfinityBlue 后，
+        可直接使用 `genai.list_models()` 枚举所有可用模型，无需修改代码。
+
+        返回字段与 Google Gemini API 原生格式完全一致，包含 `name`、
+        `displayName`、`description`、`inputTokenLimit`、`outputTokenLimit`
+        以及 `supportedGenerationMethods` 等字段。
+
+        返回的模型列表为动态数据，随 InfinityBlue 接入新模型实时更新。
+      x-mint:
+        metadata:
+          title: 列出可用模型（Gemini 格式）
+          sidebarTitle: 列出模型 · Gemini 格式
+          description: 以 Google Gemini 原生格式返回 InfinityBlue 当前全部可用模型
+        content: |
+          ## 返回的模型列表
+
+          以下是部分真实可用的模型（完整列表以接口返回为准）：
+
+          | name | displayName |
+          | --- | --- |
+          | `models/gemini-3.1-pro-preview` | Gemini 3.1 Pro Preview |
+          | `models/gemini-2.5-pro` | Gemini 2.5 Pro |
+          | `models/gpt-5.4` | GPT-5.4 |
+          | `models/gpt-5.4-mini` | GPT-5.4 Mini |
+          | `models/deepseek-v4-pro` | DeepSeek V4 Pro |
+
+          更多模型和价格见 [模型价格页](https://api.getinfinityblue.com/pricing)。
+
+          ## 使用 Google Generative AI SDK
+
+          ```python
+          import google.generativeai as genai
+
+          genai.configure(
+              api_key="YOUR_API_KEY",
+              client_options={"api_endpoint": "https://api.getinfinityblue.com"}
+          )
+
+          for model in genai.list_models():
+              print(model.name, model.display_name)
+          ```
+
+          ## 字段说明
+
+          `supportedGenerationMethods` 列出该模型支持的调用方式，
+          常见值包括 `generateContent`、`streamGenerateContent`、
+          `embedContent` 等。
+      responses:
+        "200":
+          description: 成功返回模型列表
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GeminiModelListResponse"
+              examples:
+                default:
+                  summary: 典型响应
+                  value:
+                    models:
+                      - name: models/gemini-3.1-pro-preview
+                        version: "003"
+                        displayName: Gemini 3.1 Pro Preview
+                        description: Gemini 旗舰多模态模型，支持 1M 上下文
+                        inputTokenLimit: 1048576
+                        outputTokenLimit: 65536
+                        supportedGenerationMethods:
+                          - generateContent
+                          - streamGenerateContent
+                      - name: models/gemini-2.5-pro
+                        version: "001"
+                        displayName: Gemini 2.5 Pro
+                        description: 强推理与代码生成能力
+                        inputTokenLimit: 1048576
+                        outputTokenLimit: 65536
+                        supportedGenerationMethods:
+                          - generateContent
+                          - streamGenerateContent
+                      - name: models/gpt-5.4
+                        version: "001"
+                        displayName: GPT-5.4
+                        description: GPT-5 系列旗舰，顶级推理与 Agentic 能力
+                        inputTokenLimit: 1000000
+                        outputTokenLimit: 32768
+                        supportedGenerationMethods:
+                          - generateContent
+                          - streamGenerateContent
+                      - name: models/deepseek-v4-pro
+                        version: "001"
+                        displayName: DeepSeek V4 Pro
+                        description: DeepSeek 高性价比推理模型
+                        inputTokenLimit: 131072
+                        outputTokenLimit: 16384
+                        supportedGenerationMethods:
+                          - generateContent
+                          - streamGenerateContent
+        "400":
+          description: 请求参数错误
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: API Key 无效或缺失
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: 请求频率超限
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: 服务器内部错误
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: API Key
+      description: |
+        使用 Bearer Token 认证，格式：`Authorization: Bearer sk-xxxxxx`。
+        在 [控制台](https://getinfinityblue.com) 获取 API Key。
+
+  schemas:
+    ModelListResponse:
+      type: object
+      description: OpenAI 格式的模型列表响应。
+      properties:
+        object:
+          type: string
+          description: 对象类型，固定为 `list`。
+          examples:
+            - list
+        data:
+          type: array
+          description: 可用模型的列表，每项描述一个模型。
+          items:
+            $ref: "#/components/schemas/ModelInfo"
+
+    ModelInfo:
+      type: object
+      description: OpenAI 格式的单个模型描述。
+      properties:
+        id:
+          type: string
+          description: |
+            模型 ID，在请求其他接口时用于 `model` 参数。
+            例如 `gpt-5.4`、`gemini-2.5-pro`、`deepseek-v4-pro`。
+          examples:
+            - gpt-5.4
+        object:
+          type: string
+          description: 对象类型，固定为 `model`。
+          examples:
+            - model
+        created:
+          type: integer
+          description: 模型创建时间的 Unix 时间戳（秒）。
+          examples:
+            - 1700000000
+        owned_by:
+          type: string
+          description: 模型所属厂商标识，例如 `openai`、`google`、`deepseek`、`bytedance`。
+          examples:
+            - openai
+
+    GeminiModelListResponse:
+      type: object
+      description: Gemini 原生格式的模型列表响应。
+      properties:
+        models:
+          type: array
+          description: 可用模型的列表，每项描述一个模型。
+          items:
+            $ref: "#/components/schemas/GeminiModelInfo"
+
+    GeminiModelInfo:
+      type: object
+      description: Gemini 原生格式的单个模型描述。
+      properties:
+        name:
+          type: string
+          description: |
+            模型资源名称，格式为 `models/{model-id}`。
+            在 Gemini SDK 中用于指定模型。
+          examples:
+            - models/gemini-3.1-pro-preview
+        version:
+          type: string
+          description: 模型版本号。
+          examples:
+            - "003"
+        displayName:
+          type: string
+          description: 模型的人类可读名称。
+          examples:
+            - Gemini 3.1 Pro Preview
+        description:
+          type: string
+          description: 模型功能的简要描述。
+          examples:
+            - Gemini 旗舰多模态模型，支持 1M 上下文
+        inputTokenLimit:
+          type: integer
+          description: 单次请求最大输入 token 数（上下文窗口大小）。
+          examples:
+            - 1048576
+        outputTokenLimit:
+          type: integer
+          description: 单次请求最大输出 token 数。
+          examples:
+            - 65536
+        supportedGenerationMethods:
+          type: array
+          description: |
+            该模型支持的生成方式列表。常见值：
+            - `generateContent`：非流式生成
+            - `streamGenerateContent`：流式生成
+            - `embedContent`：文本嵌入
+          items:
+            type: string
+          examples:
+            - - generateContent
+              - streamGenerateContent
+
+    ErrorResponse:
+      type: object
+      description: 标准错误响应。
+      properties:
+        error:
+          type: object
+          properties:
+            message:
+              type: string
+              description: 错误信息。
+              examples:
+                - 无效的 API Key。
+            type:
+              type: string
+              description: 错误类型。
+              examples:
+                - invalid_request_error
+            param:
+              type: [string, "null"]
+              description: 导致错误的相关参数名（无则为 null）。
+              examples:
+                - model
+            code:
+              type: [string, "null"]
+              description: 机器可读的错误代码（无则为 null）。
+              examples:
+                - invalid_api_key

@@ -1,12 +1,13 @@
 # InfinityBlue API 文档项目
 
 This repository is the **source of truth** for the InfinityBlue API
-documentation site. It contains the OpenAPI specification, MDX guides,
-and Mintlify configuration. AI agents (Cursor, Claude Code, Windsurf)
-are the primary editors.
+documentation site. It holds the OpenAPI specs (Chinese + English),
+bilingual MDX guides, and the Mintlify configuration. AI agents
+(Cursor, Claude Code, Windsurf) are the primary editors.
 
-**Mintlify deployment**: https://inbllc.mintlify.app
-**GitHub**: https://github.com/yzlltyyh/infinityblue-api-docs
+- **Live docs**: https://docs.getinfinityblue.com
+- **Model list & pricing**: https://api.getinfinityblue.com/pricing
+- **GitHub**: https://github.com/yzlltyyh/infinityblue-api-docs
 
 ---
 
@@ -14,253 +15,143 @@ are the primary editors.
 
 ```
 .
-├── openapi/                      ← OpenAPI 3.1 spec (SSOT)
-│   ├── openapi.yaml              ← Entry (referenced by openapi.yaml docs.json via bundled)
-│   ├── openapi.bundled.yaml      ← Generated publish artifact (Mintlify reads this)
-│   ├── paths/                    ← Per-endpoint YAML (source of truth)
-│   └── components/
-│       ├── schemas/              ← Data models
-│       └── responses/            ← Shared error responses
-├── docs.json                     ← Mintlify config (navigation, theme, OpenAPI pointer)
-├── index.mdx                     ← English root
-├── introduction.mdx              ← English introduction
-├── quickstart/                   ← English quickstart guides
-├── api-reference/                ← English API reference intro pages
-├── guides/                       ← English in-depth guides
-├── zh/                           ← Chinese mirror of all MDX
-│   ├── index.mdx
-│   ├── introduction.mdx
-│   ├── quickstart/
-│   ├── api-reference/
-│   └── guides/
-├── favicon.svg                   ← Repo-root favicon (docs.json references /favicon.svg)
-├── .mintignore                   ← Excludes source OpenAPI from Mintlify's auto-scan
-├── AGENTS.md                     ← This file
-├── README.md                     ← Human-facing overview
-├── package.json                  ← npm scripts
-├── redocly.yaml                  ← Redocly lint config
-└── images/                       ← Image assets
+├── openapi/                    ← OpenAPI 3.1 specs (per language, per category)
+│   ├── chat.zh.yaml            ← 聊天: ChatCompletions / Responses / Gemini / Claude
+│   ├── chat.en.yaml
+│   ├── images.zh.yaml          ← 图像: 生成 / 编辑 / Nano Banana
+│   ├── images.en.yaml
+│   ├── videos.zh.yaml          ← 视频: 通用 / Seedance 异步
+│   ├── videos.en.yaml
+│   ├── models.zh.yaml          ← 模型列表: OpenAI / Gemini 格式
+│   └── models.en.yaml
+├── docs.json                   ← Mintlify config (per-language navigation, OpenAPI pointers)
+├── index.mdx / introduction.mdx        ← English landing + overview
+├── quickstart/                 ← English: auth, first-request, errors
+├── guides/                     ← English: model-selection, streaming, multimodal-input
+├── zh/                         ← Chinese mirror of every MDX (index, introduction, quickstart, guides)
+├── images/favicon.svg          ← favicon (docs.json references /favicon.svg)
+├── redocly.yaml                ← Redocly lint config
+├── package.json                ← npm scripts (lint / validate / dev)
+└── AGENTS.md                   ← this file
 ```
+
+There is **no** `openapi/openapi.yaml`, no `paths/`, no `components/`,
+and no bundle step. Each language+category spec is a **single
+self-contained file** using internal `$ref` only.
 
 ---
 
-## Complete workflow (edit → live in ~3 min)
+## Architecture decisions (read before editing)
 
-```
-1. Edit source file
-   ↓
-   openapi/paths/foo.yaml  (or components/schemas/bar.yaml, or any .mdx)
-   ↓
-2. Validate
-   ↓
-   npm run lint          # Redocly CLI (rules in redocly.yaml)
-   npm run validate      # Mintlify validate (same engine as deploy)
-   ↓
-3. Bundle OpenAPI (only if openapi/ changed)
-   ↓
-   npm run bundle        # → openapi/openapi.bundled.yaml
-   ↓
-4. Local preview (optional)
-   ↓
-   npm install -g mint    # one-time
-   mint dev              # localhost:3000, live reload
-   ↓
-5. Commit + push
-   ↓
-   git add . && git commit -m "..." && git push
-   ↓
-6. Mintlify auto-deploys (1-2 min)
-   ↓
-   docs.your-domain.com
-```
+### 1. Bilingual API reference = two parallel specs
+
+The Apifox doc (the historical source) is in Chinese, and Chinese is the
+default site language. To give Chinese users a **fully localized** API
+reference (parameter descriptions in Chinese, not bounced to English),
+each category has two specs:
+
+- `*.zh.yaml` — Chinese descriptions (**primary / source of truth for content**)
+- `*.en.yaml` — English mirror, **identical structure/schemas/examples**;
+  only natural-language strings (`description`, `summary`, `x-mint.content`) differ.
+
+`docs.json` points the `zh` language tree at the `.zh.yaml` specs and the
+`en` tree at the `.en.yaml` specs. When you change one language's spec,
+**mirror the same structural change to the other language**.
+
+### 2. Self-contained single file per spec (no bundling)
+
+Mintlify only supports `$ref` **within a single document**. We keep each
+spec as one self-contained file (internal `$ref: '#/components/...'` only).
+This matches the Apifox export format, lets Mintlify read the file
+directly, and removes the old "forgot to bundle" footgun. **Do not add
+cross-file `$ref`.**
+
+### 3. Navigation mirrors the Apifox grouping
+
+`docs.json` groups endpoints by **native format** (聊天 → 原生 OpenAI /
+Gemini / Claude；图像 → OpenAI / Nano Banana；视频 → Seedance / 通用),
+matching what users saw on the Apifox doc. Each nav group references its
+category spec via `"openapi": { "source": "...", "directory": "..." }`.
+
+### 4. `directory` keys avoid cross-spec / cross-language page collisions
+
+Some endpoints share a path across specs (e.g. Nano Banana reuses
+`POST /v1/chat/completions` and `POST /v1beta/models/{model}:generateContent`).
+To stop Mintlify from generating colliding page files, every group sets a
+distinct `directory` per **(language, category)**: `zh-chat`, `en-chat`,
+`zh-images`, … Keep this scheme when adding endpoints.
+
+### 5. Chinese is the default language
+
+`docs.json` → `navigation.languages[].default: true` is on the `zh` entry.
 
 ---
 
-## Key constraints
+## Content rules
 
-### 1. `openapi/openapi.bundled.yaml` is the publish artifact
+- **Real models only.** This relay's actual models live at
+  https://api.getinfinityblue.com/pricing. Use real IDs in examples:
+  The **pricing page is the authoritative list** — any model ID shown
+  there is valid and may be used. Currently available:
+  - chat (OpenAI-compatible): `gpt-5.4` / `gpt-5.4-mini` / `gpt-5.5` /
+    `gpt-5.3-codex` / `gpt-5` / `gpt-5.1` / `gpt-5.2`
+  - chat (DeepSeek): `deepseek-v4-pro` / `deepseek-v4-flash`
+  - chat & multimodal (Gemini, work via both `/v1/chat/completions` and
+    `/v1beta/models/*`): `gemini-3.1-pro-preview` / `gemini-2.5-pro` /
+    `gemini-2.5-flash` / `gemini-3-flash-preview` /
+    `gemini-3.1-flash-lite-preview` / `gemini-3.5-flash`
+  - image: `gpt-image-2` / `nanobanana` / `nanobanana_pro` / `nanobanana_2`
+  - video: `doubao-seedance-2-0-260128` / `doubao-seedance-2-0-fast-260128` /
+    `veo_3_1` (and `-fast` / `-4K` variants) / `kling-v2-5-turbo` /
+    `kling-v2-1-master`
+  **Never** invent or use a model that is NOT on the pricing page — e.g.
+  `gpt-4o`, `dall-e-*`, `whisper-*`, `o3`, `claude-*`, `text-embedding-*`,
+  `sora-*`. The relay does not offer these.
+- **Real base URL** everywhere: `https://api.getinfinityblue.com`.
+- **No hard-coded prices.** Pricing changes often; link to the pricing page.
+- **OpenAPI 3.1.0.** No `nullable: true` → use `type: [string, "null"]`.
+  No `x-apifox-*` keys. Path params need `required: true`.
+- **Per operation:** unique `operationId`, `summary`, `tags`, request
+  examples, `200` + error responses (`400/401/429/500` → `ErrorResponse`),
+  and `x-mint.metadata` + `x-mint.content` for richer rendering.
 
-Mintlify **does not support cross-file `$ref`**. So:
-- Source of truth = `openapi/paths/*.yaml` + `openapi/components/**/*.yaml`
-- Mintlify reads = `openapi/openapi.bundled.yaml` (single file, all refs inlined)
+---
 
-`docs.json` points to the bundled file. Whenever you change any
-source YAML, you must regenerate the bundle:
+## Workflow (edit → live in ~3 min)
 
 ```bash
-npm run bundle
+# 1. Edit the relevant spec(s) — mirror zh and en
+openapi/chat.zh.yaml   (and openapi/chat.en.yaml)
+# or any *.mdx (mirror zh/ and the English copy)
+
+# 2. Lint (Redocly — strict, catches most issues)
+npm run lint            # lints all 8 specs
+
+# 3. (optional) Local preview — see note below
+npm run dev             # mint dev, localhost:3000
+
+# 4. Commit + push
+git add . && git commit -m "..." && git push
+
+# 5. Mintlify auto-deploys in 1-2 min → docs.getinfinityblue.com
 ```
 
-`redocly bundle openapi/openapi.yaml --output openapi/openapi.bundled.yaml`
-is what `npm run bundle` runs. Add the bundled file to your commit.
-
-### 2. `.mintignore` excludes source OpenAPI from Mintlify's auto-scan
-
-Mintlify scans all YAML files in the repo. If it finds `openapi.yaml`
-with external `$ref`, validation fails. `.mintignore` lists the
-source files to skip. **Don't remove entries from this file** unless
-you also move the source files elsewhere.
-
-### 3. docs.json navigation is per-language trees
-
-Each language under `navigation.languages[]` has its own
-`tabs[].groups[].pages[]` array. Pages for non-default languages
-**must** be prefixed with the language code (e.g. `zh/quickstart/auth`).
-
-### 4. `favicon.svg` lives at repo root
-
-`docs.json` references `/favicon.svg`. Don't move it to a subdirectory.
+> **Known environment issue:** `mint validate` / `mint dev` may crash
+> locally with an "Invalid hook call" React error caused by a nested
+> React inside `@mintlify/previewing`. This is an install issue, not a
+> spec issue. If it bites you, rely on `npm run lint` (Redocly) locally
+> and use a Mintlify **preview deployment** (open a PR) as the
+> authoritative render/validation.
 
 ---
 
-## Editing conventions
-
-### OpenAPI
-
-- **Use English** in OpenAPI (description, examples, schema names).
-  English is machine-friendly and SDK-generation compatible.
-- **One endpoint per file** in `openapi/paths/`. Filename matches the
-  HTTP verb + path (e.g. `videos-create.yaml` for `POST /v1/videos`).
-- **One schema per file** in `openapi/components/schemas/`. Use
-  `$ref: ./bar.yaml` to compose.
-- **Path parameters must have `required: true`**. OpenAPI 3.1
-  requires this; Mintlify validation fails otherwise.
-- **Use `oneOf` + `discriminator`** for upstream-format polymorphism
-  (e.g. OpenAI vs Anthropic Messages format).
-- **Always include at least one `example`** per request body.
-- **Use `x-mint` extension** for richer Mintlify rendering:
-  ```yaml
-  x-mint:
-    metadata:
-      title: "Friendly title"
-      sidebarTitle: "Sidebar title"
-      description: "One-line description"
-    content: |
-      ## Optional extra Markdown content
-      shown below the auto-generated reference.
-  ```
-
-### MDX guides
-
-- Front matter: `title`, `description` (used for SEO and search)
-- Use Mintlify components: `<Card>`, `<CardGroup>`, `<Note>`,
-  `<Warning>`, `<Steps>`, `<Step>`, `<Tabs>`, `<Tab>`, `<CodeGroup>`,
-  `<AccordionGroup>`, `<Accordion>`, `<Tooltip>`
-- Internal links: `[text](path)` or `[text](/zh/quickstart/auth)`
-  (use absolute paths in the current language)
-- Code blocks: prefer `<CodeGroup>` with language tabs for SDK examples
-
-### Chinese mirror
-
-When you add or change an English MDX file, mirror it to
-`zh/<same-path>`. Translation is light-touch — adapt, don't literally
-translate, especially for code identifiers.
-
----
-
-## Tooling reference
-
-### npm scripts (in `package.json`)
+## npm scripts
 
 | Script | Command | Purpose |
 |---|---|---|
-| `npm run lint` | `redocly lint openapi/openapi.yaml` | Catch schema errors fast |
-| `npm run bundle` | `redocly bundle openapi/openapi.yaml --output openapi/openapi.bundled.yaml` | Generate publish artifact |
-| `npm run validate` | `mint validate openapi/openapi.yaml` | Same engine Mintlify uses for deploy validation |
+| `npm run lint` | `redocly lint` (all 8 specs) | Catch OpenAPI errors fast (strict) |
+| `npm run validate` | `mint validate` | Mintlify build validation (see env note) |
 | `npm run dev` | `mint dev` | Local preview at localhost:3000 |
-
-### Mintlify CLI
-
-Install once: `npm install -g mint`
-
-| Command | Purpose |
-|---|---|
-| `mint dev` | Local dev server, live reload, OpenAPI reference renders live |
-| `mint validate` | Same validator as the deploy pipeline |
-| `mint build` | Production build (mostly for debugging) |
-
-### Redocly CLI
-
-Install once: `npm install` (in this repo's package.json)
-
-| Command | Purpose |
-|---|---|
-| `npx @redocly/cli lint <file>` | Catch OpenAPI errors (faster than `mint validate`) |
-| `npx @redocly/cli bundle <entry> --output <out>` | Bundle multi-file OpenAPI into one file |
-
-Redocly is more strict than Mintlify's validator. A pass on Redocly
-usually means Mintlify will pass too.
-
-### Git workflow
-
-```bash
-# Standard edit
-git checkout -b feat/some-change
-# ... edit files ...
-npm run lint
-npm run bundle  # if OpenAPI changed
-git add .
-git commit -m "feat(openapi): add /v1/foo endpoint"
-git push origin feat/some-change
-# Open PR on GitHub, review, merge
-```
-
----
-
-## External integrations
-
-### Mintlify MCP server
-
-AI agents can directly read your deployed docs:
-
-`~/.cursor/mcp.json`:
-```json
-{
-  "mcpServers": {
-    "mintlify-search": {
-      "url": "https://docs.mintlify.com/.well-known/mcp/your-project-id"
-    }
-  }
-}
-```
-
-See `guides/mcp-integration.mdx` for full setup.
-
-### Apifox debugging sandbox
-
-Apifox is a **consumer** of our OpenAPI. It does NOT push back to Git.
-Setup: see `guides/apifox-sandbox.mdx`.
-
-Brief: Apifox project → Data Management → External Data Sources → Add
-URL `https://inbllc.mintlify.app/openapi.yaml` → sync hourly.
-
-### llms.txt (auto-generated)
-
-Mintlify auto-exposes:
-- `https://inbllc.mintlify.app/llms.txt` (index)
-- `https://inbllc.mintlify.app/llms-full.txt` (full content)
-- `https://inbllc.mintlify.app/.well-known/skill.md` (agent skill)
-
-ChatGPT, Claude Code, and other agents know to look for these. You
-don't need to do anything to enable them.
-
----
-
-## What NOT to do
-
-- ❌ Edit `openapi/openapi.bundled.yaml` directly — it's generated.
-  Edit source files and re-bundle.
-- ❌ Put `nullable: true` in OpenAPI — OpenAPI 3.1 deprecated this.
-  Use `type: [string, "null"]` instead.
-- ❌ Skip the `bundle` step after editing OpenAPI source files.
-- ❌ Add cross-file `$ref` to `openapi.yaml` thinking Mintlify will
-  follow them. It won't.
-- ❌ Edit `index.mdx` in `zh/` (it doesn't exist; mintlify uses
-  `zh/index.mdx` for Chinese root).
-- ❌ Push before running `npm run lint` and `npm run validate`.
-  Fix errors locally first; debugging deploy failures is slower.
-- ❌ Remove entries from `.mintignore` without understanding why
-  they're there (it prevents Mintlify from scanning source OpenAPI).
 
 ---
 
@@ -268,9 +159,21 @@ don't need to do anything to enable them.
 
 | Task | Steps |
 |---|---|
-| Add new endpoint | Create `openapi/paths/<verb-path>.yaml` → add `$ref` in `openapi.yaml` entry → `npm run lint && npm run bundle && npm run validate` → commit bundled + source |
-| Update description on existing endpoint | Edit `openapi/paths/<file>.yaml` → `npm run lint && npm run bundle && npm run validate` → commit |
-| Add new schema | Create `openapi/components/schemas/<name>.yaml` → reference in `openapi.yaml` entry's `components.schemas` → bundle |
-| Add new guide | Create `guides/<name>.mdx` (en) + `zh/guides/<name>.mdx` (zh) → add to both `tabs[].groups[].pages[]` in `docs.json` |
-| Rename a model | grep all `paths/` + `components/schemas/` → update all `$ref` + all example values → re-bundle → validate |
-| Add a new model category (e.g. embeddings) | Add OpenAPI paths + components → add `zh/api-reference/embeddings.mdx` + `api-reference/embeddings.mdx` → wire into `docs.json` → bundle |
+| Edit an endpoint's description/params | Edit `openapi/<cat>.zh.yaml` **and** `<cat>.en.yaml` → `npm run lint` → commit |
+| Add an endpoint | Add the operation + schemas to both `<cat>.{zh,en}.yaml` → add a `"METHOD /path"` entry under the right nav group in `docs.json` (both languages) → `npm run lint` |
+| Add a new category | Create `<cat>.{zh,en}.yaml` → add a top-level group in `docs.json` for both languages with a distinct `directory` (`zh-<cat>` / `en-<cat>`) → lint |
+| Update example models | grep specs + MDX for the old ID → replace with a real ID from the pricing page → lint |
+| Add a guide | Create `guides/<name>.mdx` (en) + `zh/guides/<name>.mdx` (zh) → add to both language `pages` arrays in `docs.json` |
+
+---
+
+## What NOT to do
+
+- ❌ Add cross-file `$ref` (Mintlify won't follow it — keep specs self-contained).
+- ❌ Put `nullable: true` in a spec (use `type: [x, "null"]`).
+- ❌ Use fake/unavailable models or hard-code prices.
+- ❌ Change one language's spec/MDX without mirroring the other.
+- ❌ Recreate `openapi/openapi.yaml`, `paths/`, `components/`, or a bundle
+  step — the architecture is single-file-per-spec now.
+- ❌ Reuse a `directory` value across two different (language, category)
+  pairs — it causes page collisions.

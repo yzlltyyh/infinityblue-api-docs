@@ -12,7 +12,7 @@ Every error response from the InfinityBlue API follows a single, OpenAI-compatib
 ```json
 {
   "error": {
-    "message": "Incorrect API key provided: sk-xxx***. You can find your API key at https://infinityblue.com/dashboard.",
+    "message": "Incorrect API key provided: sk-xxx***. You can find your API key at https://getinfinityblue.com.",
     "type": "invalid_request_error",
     "code": "invalid_api_key",
     "param": null
@@ -69,7 +69,7 @@ Every error response from the InfinityBlue API follows a single, OpenAI-compatib
     Inspect the `x-ratelimit-remaining-*` and `x-ratelimit-reset-*` headers. A request can fail with `429` even when the body looks correct.
   </Step>
   <Step title="Open a support ticket">
-    If the issue persists, include the request ID, the timestamp, and a redacted version of the payload. Never share the API key.
+    If the issue persists, include the request ID, the timestamp, and a redacted version of the payload. Never share the API key. Visit [getinfinityblue.com](https://getinfinityblue.com) for support options.
   </Step>
 </Steps>
 
@@ -82,7 +82,3 @@ A production client should:
 - Never retry `400`, `401`, `403`, or `404` — these failures will not resolve on their own.
 - Surface a clear, user-friendly error when retries are exhausted, ideally using the gateway's `message`.
 - Track the `usage` field of successful responses to keep your own cost telemetry accurate.
-
-<Note>
-  See the [API Reference](/api-reference/chat) for the full set of error codes published by each endpoint. The list above is a quick triage cheat sheet, not a complete specification.
-</Note>

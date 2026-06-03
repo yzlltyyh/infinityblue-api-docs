@@ -51,7 +51,7 @@
     ]
   },
   "api": {
-    "openapi": "openapi/openapi.yaml"
+    "openapi": "openapi/openapi.bundled.yaml"
   },
   "footer": {
     "socials": {

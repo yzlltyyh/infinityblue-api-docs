@@ -7,8 +7,8 @@ pnpm-lock.yaml
 # Mintlify build output
 .mintlify/
 
-# Redocly bundle output
-openapi/openapi.bundled.yaml
+# Redocly bundle output IS committed (Mintlify doesn't support cross-file $ref)
+# openapi/openapi.bundled.yaml
 
 # IDE
 .vscode/

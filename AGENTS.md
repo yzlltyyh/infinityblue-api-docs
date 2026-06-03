@@ -5,11 +5,18 @@
 
 ## 工作流
 
-1. 修改 `openapi/` 下的 YAML 文件
+1. 修改 `openapi/openapi.yaml` 入口或 `openapi/paths/*.yaml`、`openapi/components/**/*.yaml` 子文件
 2. `npm run lint` 验证（Redocly CLI）
-3. `npm run validate`（Mintlify 验证 OpenAPI）
-4. `npm run dev`（Mintlify 本地预览，可选）
-5. `git commit` + `git push` → Mintlify 自动部署
+3. `npm run bundle` 生成 `openapi/openapi.bundled.yaml`
+4. `npm run validate`（Mintlify 验证 OpenAPI）
+5. `npm run dev`（Mintlify 本地预览，可选）
+6. `git add .` + `git commit`（包含 bundled 文件）+ `git push` → Mintlify 自动部署
+
+## 关键约束
+
+**`docs.json` 指向 `openapi/openapi.bundled.yaml` 而不是 `openapi/openapi.yaml`**。
+原因是 Mintlify 不支持 OpenAPI 跨文件 `$ref`，必须 bundle 成单文件。
+`openapi.bundled.yaml` 是 publish artifact，每次改源码后必须重新生成。
 
 ## 文件组织
 

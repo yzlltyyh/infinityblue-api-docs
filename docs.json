@@ -10,40 +10,83 @@
   "favicon": "/favicon.svg",
   "navigation": {
     "languages": [
-      { "language": "zh", "default": true, "name": "中文" },
-      { "language": "en", "name": "English" }
-    ],
-    "tabs": [
       {
-        "tab": "Documentation",
-        "groups": [
+        "language": "zh",
+        "default": true,
+        "tabs": [
           {
-            "group": "Get Started",
-            "pages": [
-              "introduction",
-              "quickstart/auth",
-              "quickstart/first-request",
-              "quickstart/errors"
+            "tab": "文档",
+            "groups": [
+              {
+                "group": "开始使用",
+                "pages": [
+                  "zh/index",
+                  "zh/introduction",
+                  "zh/quickstart/auth",
+                  "zh/quickstart/first-request",
+                  "zh/quickstart/errors"
+                ]
+              },
+              {
+                "group": "API 参考",
+                "pages": [
+                  "zh/api-reference/chat",
+                  "zh/api-reference/images",
+                  "zh/api-reference/videos",
+                  "zh/api-reference/audio",
+                  "zh/api-reference/embeddings",
+                  "zh/api-reference/rerank",
+                  "zh/api-reference/models"
+                ]
+              },
+              {
+                "group": "指南",
+                "pages": [
+                  "zh/guides/model-selection",
+                  "zh/guides/streaming",
+                  "zh/guides/multimodal-input"
+                ]
+              }
             ]
-          },
+          }
+        ]
+      },
+      {
+        "language": "en",
+        "tabs": [
           {
-            "group": "API Reference",
-            "pages": [
-              "api-reference/chat",
-              "api-reference/images",
-              "api-reference/videos",
-              "api-reference/audio",
-              "api-reference/embeddings",
-              "api-reference/rerank",
-              "api-reference/models"
-            ]
-          },
-          {
-            "group": "Guides",
-            "pages": [
-              "guides/model-selection",
-              "guides/streaming",
-              "guides/multimodal-input"
+            "tab": "Documentation",
+            "groups": [
+              {
+                "group": "Get Started",
+                "pages": [
+                  "index",
+                  "introduction",
+                  "quickstart/auth",
+                  "quickstart/first-request",
+                  "quickstart/errors"
+                ]
+              },
+              {
+                "group": "API Reference",
+                "pages": [
+                  "api-reference/chat",
+                  "api-reference/images",
+                  "api-reference/videos",
+                  "api-reference/audio",
+                  "api-reference/embeddings",
+                  "api-reference/rerank",
+                  "api-reference/models"
+                ]
+              },
+              {
+                "group": "Guides",
+                "pages": [
+                  "guides/model-selection",
+                  "guides/streaming",
+                  "guides/multimodal-input"
+                ]
+              }
             ]
           }
         ]

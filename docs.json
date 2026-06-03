@@ -33,9 +33,6 @@
                   "zh/api-reference/chat",
                   "zh/api-reference/images",
                   "zh/api-reference/videos",
-                  "zh/api-reference/audio",
-                  "zh/api-reference/embeddings",
-                  "zh/api-reference/rerank",
                   "zh/api-reference/models"
                 ]
               },
@@ -73,9 +70,6 @@
                   "api-reference/chat",
                   "api-reference/images",
                   "api-reference/videos",
-                  "api-reference/audio",
-                  "api-reference/embeddings",
-                  "api-reference/rerank",
                   "api-reference/models"
                 ]
               },

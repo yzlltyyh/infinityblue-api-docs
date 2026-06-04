@@ -21,7 +21,7 @@ info:
     Authorization: Bearer YOUR_API_KEY
     ```
 
-    在 [控制台](https://getinfinityblue.com) 创建和管理你的 API Key。
+    在 [控制台](https://api.getinfinityblue.com/console) 创建和管理你的 API Key。
   contact:
     name: InfinityBlue
     url: https://getinfinityblue.com
@@ -291,7 +291,7 @@ components:
       bearerFormat: API Key
       description: |
         使用 Bearer Token 认证，格式：`Authorization: Bearer sk-xxxxxx`。
-        在 [控制台](https://getinfinityblue.com) 获取 API Key。
+        在 [控制台](https://api.getinfinityblue.com/console) 获取 API Key。
 
   schemas:
     ModelListResponse:

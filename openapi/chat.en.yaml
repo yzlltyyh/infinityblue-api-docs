@@ -20,7 +20,7 @@ info:
     Authorization: Bearer YOUR_API_KEY
     ```
 
-    Create and manage your API keys in the [console](https://getinfinityblue.com).
+    Create and manage your API keys in the [console](https://api.getinfinityblue.com/console).
 
     ## Endpoint format conventions
 
@@ -686,7 +686,7 @@ components:
       bearerFormat: API Key
       description: |
         Bearer token authentication, format: `Authorization: Bearer sk-xxxxxx`.
-        Get your API key in the [console](https://getinfinityblue.com).
+        Get your API key in the [console](https://api.getinfinityblue.com/console).
 
   schemas:
     # ── ChatCompletions ────────────────────────────────────────────────────────

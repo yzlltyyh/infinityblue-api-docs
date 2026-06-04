@@ -16,7 +16,7 @@ info:
     Authorization: Bearer YOUR_API_KEY
     ```
 
-    Create and manage your API keys in the [console](https://getinfinityblue.com).
+    Create and manage your API keys in the [console](https://api.getinfinityblue.com/console).
 
     ## Endpoint format conventions
 
@@ -56,22 +56,23 @@ paths:
       operationId: createImageGeneration
       description: |
         Generate an image from a text prompt. Supports the `gpt-image-2` model
-        with flexible sizing, quality control, background transparency, and
-        streaming partial-image delivery.
+        with flexible sizing and multiple output formats.
 
         Fully compatible with the OpenAI Images API — just point your SDK's
         base URL at InfinityBlue.
       x-mint:
         metadata:
           title: Create image generation
-          sidebarTitle: Text-to-image (OpenAI format)
+          sidebarTitle: Text-to-image
           description: Generate images from text prompts with configurable size, quality, and output format
         content: |
           ## Models you can use
 
           | Model ID | Notes |
           | --- | --- |
-          | `gpt-image-2` | GPT Image 2 — flexible sizing, transparent background, streaming partial images |
+          | `gpt-image-2` | GPT Image 2 — flexible sizing and multiple output formats |
+
+          > Snapshot versions (e.g. `gpt-image-2-2026-04-21`) are currently unavailable. Please use `gpt-image-2`.
 
           ## Size options (`gpt-image-2`)
 
@@ -84,17 +85,23 @@ paths:
           Common presets: `1024x1024`, `1536x1024` (landscape), `1024x1536` (portrait),
           `2048x2048`, `2048x1152`, `3840x2160`, `2160x3840`.
 
+          Custom sizes are also supported (e.g. `1024x768`), as long as both dimensions
+          are multiples of 16 and satisfy the constraints above.
+
           ## Streaming
 
-          Set `stream: true` to progressively receive partial images during generation.
-          Use `partial_images` to control the number of intermediate frames (`0`–`3`);
-          each partial image costs an additional `100` output tokens.
+          Streaming is not currently supported. The `stream` and `partial_images`
+          parameters are accepted but have no effect — the response is always
+          returned as a complete JSON payload.
 
           ## Quality and format
 
-          - `quality`: `low` (fastest) / `medium` / `high` (best quality) / `auto` (default)
+          - `quality`: Quality tiers are not currently supported; all requests
+            use the `auto` level. The parameter is accepted but has no observable
+            difference between levels.
           - `output_format`: `png` (default) / `jpeg` / `webp`
           - `output_compression`: applies to `jpeg` / `webp` only, range `0`–`100`
+
       requestBody:
         required: true
         content:
@@ -103,36 +110,48 @@ paths:
               $ref: "#/components/schemas/ImageGenerationRequest"
             examples:
               basic:
-                summary: Basic text-to-image
+                summary: Basic square image
                 value:
                   model: gpt-image-2
                   prompt: A cute baby sea otter floating on a blue ocean
-                  n: 1
                   size: 1024x1024
-              high_quality:
-                summary: High-quality landscape image
+              landscape:
+                summary: Landscape widescreen
                 value:
                   model: gpt-image-2
                   prompt: Futuristic city at night, neon lights reflecting on rain-soaked streets, cyberpunk style
                   size: 1536x1024
-                  quality: high
                   output_format: png
-              streaming:
-                summary: Streaming generation with partial frames
+              jpeg_compressed:
+                summary: JPEG compressed output
                 value:
                   model: gpt-image-2
                   prompt: A serene Japanese garden with cherry blossoms falling and sunlight through the leaves
-                  stream: true
-                  partial_images: 2
+                  output_format: jpeg
+                  output_compression: 80
                   size: 1024x1024
-              transparent_bg:
-                summary: Transparent background (PNG)
+              portrait:
+                summary: Portrait (vertical)
                 value:
                   model: gpt-image-2
-                  prompt: A red apple icon on white background, flat design style
-                  background: transparent
+                  prompt: An ancient lighthouse on a cliff edge, waves crashing against rocks, sunset glow
+                  size: 1024x1536
                   output_format: png
+              webp_output:
+                summary: WebP format output
+                value:
+                  model: gpt-image-2
+                  prompt: A steaming bowl of Japanese ramen, top-down angle, food photography style
                   size: 1024x1024
+                  output_format: webp
+                  output_compression: 90
+              url_response:
+                summary: URL response format
+                value:
+                  model: gpt-image-2
+                  prompt: A minimalist red apple icon, flat design style, white background
+                  size: 1024x1024
+                  response_format: url
       responses:
         "200":
           description: Image generated successfully
@@ -173,41 +192,85 @@ paths:
       operationId: createImageEdit
       description: |
         Create an edited or extended image from an original image and a text
-        prompt. Supports the `gpt-image-2` model with optional mask regions to
-        constrain editing, and accepts multiple reference images for style
-        unification or asset fusion.
+        prompt. Supports the `gpt-image-2` model with multiple reference images
+        for style unification or asset fusion.
 
-        The request body is `multipart/form-data`, containing image files and
-        text fields.
+        The request body supports both `multipart/form-data` (file upload) and
+        `application/json` (base64 data URL) formats.
       x-mint:
         metadata:
           title: Create image edit
-          sidebarTitle: Image editing (OpenAI format)
+          sidebarTitle: Image editing
           description: Edit images using a reference image and text prompt, with support for masks and multiple references
         content: |
-          ## Mask fields
-
-          - `mask`: PNG file where fully transparent areas (alpha=0) indicate
-            the regions to edit.
-          - `input_image_mask`: Preferred mask field for `gpt-image-2`. Must
-            contain an alpha channel and match the input image dimensions.
-
           ## Multiple reference images
 
           Pass 1–16 additional reference images via the `images` field
           (URL, base64, or File ID) alongside the primary `image` to enable
           multi-reference generation.
 
+          ## Request formats
+
+          Two request formats are supported:
+          - **`multipart/form-data`**: Upload images as files
+          - **`application/json`**: Pass images as base64 data URLs (e.g. `data:image/jpeg;base64,...`)
+
+          ## Mask fields
+
+          - The `mask` and `input_image_mask` parameters are accepted but
+            currently have no effect — edits are always applied to the entire
+            image. For partial editing, consider compositing on the client side.
+
+          ## Output size
+
+          It is recommended to explicitly pass the `size` parameter for
+          predictable output dimensions. Without `size`, the output dimensions
+          may vary depending on the input images.
+
           ## `gpt-image-2` parameters
 
           | Parameter | Notes |
           | --- | --- |
           | `images` (multi-reference) | Supports 1–16 reference images |
-          | `input_image_mask` | Preferred mask field; must contain an alpha channel |
           | `input_fidelity` | Auto high-fidelity; the API ignores manual settings |
+
       requestBody:
         required: true
         content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ImageEditJsonRequest"
+            examples:
+              basic_edit:
+                summary: Single-reference edit
+                value:
+                  model: gpt-image-2
+                  prompt: Replace the pen tip in the main image with the round soft brush tip from the reference image, keep everything else unchanged
+                  image: "data:image/jpeg;base64,<main_image_base64>"
+                  images:
+                    - "data:image/jpeg;base64,<reference_image_base64>"
+                  size: 1024x1024
+              multi_reference:
+                summary: Multi-reference style fusion
+                value:
+                  model: gpt-image-2
+                  prompt: Redesign the color scheme of the main image based on the styles in these reference images
+                  image: "data:image/jpeg;base64,<main_image_base64>"
+                  images:
+                    - "data:image/jpeg;base64,<reference_1_base64>"
+                    - "data:image/jpeg;base64,<reference_2_base64>"
+                  size: 1536x1024
+                  output_format: png
+              jpeg_output:
+                summary: JPEG output with URL response
+                value:
+                  model: gpt-image-2
+                  prompt: Replace the product background in the main image with a clean white studio backdrop
+                  image: "data:image/jpeg;base64,<main_image_base64>"
+                  size: 2048x2048
+                  output_format: jpeg
+                  output_compression: 85
+                  response_format: url
           multipart/form-data:
             schema:
               $ref: "#/components/schemas/ImageEditRequest"
@@ -529,7 +592,7 @@ components:
       bearerFormat: API Key
       description: |
         Bearer token authentication, format: `Authorization: Bearer sk-xxxxxx`.
-        Get your API key in the [console](https://getinfinityblue.com).
+        Get your API key in the [console](https://api.getinfinityblue.com/console).
 
   schemas:
     ImageGenerationRequest:
@@ -543,6 +606,7 @@ components:
           type: string
           description: |
             Model ID to use for image generation. Pass `gpt-image-2`.
+            Snapshot versions (e.g. `gpt-image-2-2026-04-21`) are currently unavailable.
           examples:
             - gpt-image-2
         prompt:
@@ -555,11 +619,12 @@ components:
         n:
           type: integer
           minimum: 1
-          maximum: 10
+          maximum: 1
           default: 1
           description: |
-            Number of images to generate. For `gpt-image-2`, defaults to `1`;
-            typically supports `1` to `10`, depending on account tier.
+            The `n` parameter is not currently supported. Defaults to `n=1`,
+            returning one image per request. To generate multiple images,
+            call the endpoint in a loop.
         size:
           type: string
           default: auto
@@ -577,8 +642,8 @@ components:
           type: string
           description: |
             Background setting for the generated image. For `gpt-image-2`,
-            defaults to `auto`; supports `transparent` (requires `output_format`
-            `png` or `webp`), `opaque`, or `auto`.
+            defaults to `auto`; supports `opaque` or `auto`.
+            `gpt-image-2` does not support `transparent` — passing it returns a 400 error.
           enum:
             - opaque
             - transparent
@@ -594,9 +659,9 @@ components:
         quality:
           type: string
           description: |
-            Controls the quality of the generated image. For `gpt-image-2`,
-            defaults to `auto`. Options: `low` (fastest), `medium`, `high`
-            (best quality).
+            Quality tiers are not currently supported; all requests use the
+            `auto` level. The parameter is accepted but has no observable
+            difference between levels.
           enum:
             - low
             - medium
@@ -606,11 +671,14 @@ components:
           type: boolean
           default: false
           description: |
-            Whether to stream partial images progressively. For `gpt-image-2`,
-            set to `true` to receive intermediate frames during generation.
+            Streaming is not currently supported. The parameter is accepted
+            but has no effect — the response is always returned as a complete
+            JSON payload.
         style:
           type: string
-          description: Image style hint (supported by select models).
+          description: |
+            Image style hint. Only supported by DALL·E 3.
+            For `gpt-image-2`, the parameter is accepted but has no effect.
         output_format:
           type: string
           description: |
@@ -634,9 +702,19 @@ components:
           maximum: 3
           default: 0
           description: |
-            Number of intermediate partial frames when streaming (0–3). For
-            `gpt-image-2`, each partial image costs an additional 100 output
-            tokens. Only effective when `stream: true`.
+            Number of intermediate partial frames when streaming (0–3).
+            Depends on streaming support — since streaming is not currently
+            available, this parameter has no effect.
+        response_format:
+          type: string
+          default: b64_json
+          description: |
+            Format in which the generated image is returned. Defaults to
+            `b64_json` (Base64-encoded image data); set to `url` to receive
+            a temporary access URL (download or save promptly).
+          enum:
+            - b64_json
+            - url
         user:
           type: string
           description: |
@@ -718,22 +796,29 @@ components:
           format: binary
           description: |
             Mask image file where fully transparent areas (alpha=0) indicate
-            the regions to edit. For `gpt-image-2`, prefer `input_image_mask`
-            instead, as it provides better alpha-channel integration.
+            the regions to edit. Masking is not currently supported — the
+            parameter is accepted but has no effect; edits are applied to
+            the entire image.
         input_image_mask:
           type: string
           format: binary
           description: |
-            `gpt-image-2`-specific mask field. Must contain an alpha channel
-            and match the input image dimensions to specify the edit region.
+            `gpt-image-2`-specific mask field. Masking is not currently
+            supported — the parameter is accepted but has no effect; edits
+            are applied to the entire image.
         prompt:
           type: string
           description: A text description of the desired edit. Maximum 1,000 characters.
           examples:
             - Replace the cat in the image with a Shiba Inu, keeping the background unchanged
         n:
-          type: string
-          description: Number of images to generate. Must be between 1 and 10.
+          type: integer
+          minimum: 1
+          default: 1
+          description: |
+            The `n` parameter is not currently supported. Defaults to `n=1`,
+            returning one image per request. To generate multiple images,
+            call the endpoint in a loop.
         size:
           type: string
           description: |
@@ -756,11 +841,164 @@ components:
         model:
           type: string
           description: |
-            The image model to use. `gpt-image-2` is supported; when using
-            `gpt-image-2`, the `images` and `input_image_mask` parameters
-            become available.
+            The image model to use. Pass `gpt-image-2`.
+            Snapshot versions (e.g. `gpt-image-2-2026-04-21`) are currently unavailable.
           examples:
             - gpt-image-2
+        quality:
+          type: string
+          description: |
+            Quality tiers are not currently supported; all requests use the
+            `auto` level. The parameter is accepted but has no observable
+            difference between levels.
+          enum:
+            - low
+            - medium
+            - high
+            - auto
+        output_format:
+          type: string
+          description: |
+            Output format of the generated image. Defaults to `png`;
+            options: `png`, `jpeg`, `webp`.
+          enum:
+            - png
+            - jpeg
+            - webp
+        output_compression:
+          type: integer
+          minimum: 0
+          maximum: 100
+          description: |
+            Output compression quality (0–100). Applies only when
+            `output_format` is `jpeg` or `webp`.
+        background:
+          type: string
+          description: |
+            Background setting for the generated image. Defaults to `auto`;
+            supports `opaque` or `auto`. `gpt-image-2` does not support
+            `transparent` — passing it returns a 400 error.
+          enum:
+            - opaque
+            - auto
+        user:
+          type: string
+          description: A unique identifier for your end user, useful for abuse monitoring.
+
+    ImageEditJsonRequest:
+      type: object
+      required:
+        - model
+        - prompt
+        - image
+      description: |
+        Image edit request body (JSON format). Images are passed as base64
+        data URLs (e.g. `data:image/jpeg;base64,...`) or image URLs.
+      properties:
+        model:
+          type: string
+          description: |
+            The image model to use. Pass `gpt-image-2`.
+            Snapshot versions (e.g. `gpt-image-2-2026-04-21`) are currently unavailable.
+          examples:
+            - gpt-image-2
+        prompt:
+          type: string
+          description: A text description of the desired edit. Maximum 1,000 characters.
+          examples:
+            - Replace the pen tip in the main image with the round soft brush tip from the reference image, keep everything else unchanged
+        image:
+          type: string
+          description: |
+            The primary image. Accepts a base64 data URL
+            (e.g. `data:image/jpeg;base64,...`) or an image URL.
+        images:
+          type: array
+          description: |
+            Additional reference images (1–16 items). Accepts base64 data URLs
+            or image URLs. Use alongside the primary `image` for multi-reference editing.
+          items:
+            type: string
+        n:
+          type: integer
+          minimum: 1
+          default: 1
+          description: |
+            The `n` parameter is not currently supported. Defaults to `n=1`,
+            returning one image per request. To generate multiple images,
+            call the endpoint in a loop.
+        size:
+          type: string
+          description: |
+            Size of the output image. Follows the same rules as the generation
+            endpoint; defaults to `auto`. It is recommended to pass this
+            explicitly for predictable output dimensions.
+          examples:
+            - 1024x1024
+            - 1536x1024
+        response_format:
+          type: string
+          default: b64_json
+          description: |
+            Format in which the generated image is returned. Defaults to
+            `b64_json` (Base64-encoded data); set to `url` for a temporary
+            access URL.
+          enum:
+            - b64_json
+            - url
+        output_format:
+          type: string
+          description: |
+            Output format of the generated image. Defaults to `png`;
+            options: `png`, `jpeg`, `webp`.
+          enum:
+            - png
+            - jpeg
+            - webp
+        output_compression:
+          type: integer
+          minimum: 0
+          maximum: 100
+          description: |
+            Output compression quality (0–100). Applies only when
+            `output_format` is `jpeg` or `webp`.
+        background:
+          type: string
+          description: |
+            Background setting for the generated image. Defaults to `auto`;
+            supports `opaque` or `auto`. `gpt-image-2` does not support
+            `transparent` — passing it returns a 400 error.
+          enum:
+            - opaque
+            - auto
+        quality:
+          type: string
+          description: |
+            Quality tiers are not currently supported; all requests use the
+            `auto` level. The parameter is accepted but has no observable
+            difference between levels.
+          enum:
+            - low
+            - medium
+            - high
+            - auto
+        mask:
+          type: string
+          description: |
+            Mask image as a base64 data URL. Masking is not currently
+            supported — the parameter is accepted but has no effect; edits
+            are applied to the entire image.
+        input_image_mask:
+          type: string
+          description: |
+            `gpt-image-2`-specific mask field as a base64 data URL. Masking
+            is not currently supported — the parameter is accepted but has
+            no effect; edits are applied to the entire image.
+        input_fidelity:
+          type: string
+          description: |
+            Input fidelity setting. For `gpt-image-2`, high fidelity is
+            enforced automatically; the API ignores this parameter.
         user:
           type: string
           description: A unique identifier for your end user, useful for abuse monitoring.

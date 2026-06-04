@@ -593,7 +593,7 @@ components:
       bearerFormat: API Key
       description: |
         使用 Bearer Token 认证，格式：`Authorization: Bearer sk-xxxxxx`。
-        在 [控制台](https://getinfinityblue.com) 获取 API Key。
+        在 [控制台](https://api.getinfinityblue.com/console) 获取 API Key。
 
   schemas:
     VideoGenerationRequest:

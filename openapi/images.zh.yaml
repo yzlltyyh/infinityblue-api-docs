@@ -94,6 +94,63 @@ paths:
             参数会被接受但各级别间无实际差异。
           - `output_format`：`png`（默认）/ `jpeg` / `webp`
           - `output_compression`：仅对 `jpeg` / `webp` 生效，取值 `0`–`100`
+
+          ## 请求示例
+
+          **Python — 基础方图：**
+
+          ```python
+          import requests, base64, io
+          from PIL import Image
+
+          resp = requests.post(
+              "https://api.getinfinityblue.com/v1/images/generations",
+              headers={"Authorization": "Bearer YOUR_API_KEY",
+                       "Content-Type": "application/json"},
+              json={
+                  "model": "gpt-image-2",
+                  "prompt": "一只可爱的海獭宝宝漂浮在蓝色海面上",
+                  "size": "1024x1024",
+              },
+              timeout=300,
+          )
+          img_data = base64.b64decode(resp.json()["data"][0]["b64_json"])
+          Image.open(io.BytesIO(img_data)).save("output.png")
+          ```
+
+          **curl — 横向宽屏 JPEG：**
+
+          ```bash
+          curl -X POST https://api.getinfinityblue.com/v1/images/generations \
+            -H "Authorization: Bearer YOUR_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "model": "gpt-image-2",
+              "prompt": "未来都市夜景，霓虹灯倒映在雨后的街道上",
+              "size": "1536x1024",
+              "output_format": "jpeg",
+              "output_compression": 80
+            }'
+          ```
+
+          **Python — 获取图片 URL（便于转存）：**
+
+          ```python
+          resp = requests.post(
+              "https://api.getinfinityblue.com/v1/images/generations",
+              headers={"Authorization": "Bearer YOUR_API_KEY",
+                       "Content-Type": "application/json"},
+              json={
+                  "model": "gpt-image-2",
+                  "prompt": "简约风格的红苹果图标，扁平设计，白色背景",
+                  "size": "1024x1024",
+                  "response_format": "url",
+              },
+              timeout=300,
+          )
+          image_url = resp.json()["data"][0]["url"]
+          # URL 为临时地址，建议尽快下载或转存
+          ```
       requestBody:
         required: true
         content:
@@ -122,6 +179,21 @@ paths:
                   output_format: jpeg
                   output_compression: 80
                   size: 1024x1024
+              portrait:
+                summary: 纵向竖图
+                value:
+                  model: gpt-image-2
+                  prompt: 一座古老的灯塔矗立在悬崖边，海浪拍打着礁石，日落余晖
+                  size: 1024x1536
+                  output_format: png
+              webp_output:
+                summary: WebP 格式输出
+                value:
+                  model: gpt-image-2
+                  prompt: 一碗热气腾腾的日式拉面，俯视角度，美食摄影风格
+                  size: 1024x1024
+                  output_format: webp
+                  output_compression: 90
               url_response:
                 summary: 返回图片 URL
                 value:
@@ -205,6 +277,77 @@ paths:
           | --- | --- |
           | `images`（多参考图） | 支持 1–16 张参考图 |
           | `input_fidelity` | 自动高保真，API 忽略手动设置 |
+
+          ## 请求示例
+
+          以下示例均使用 `application/json` 格式，图片以 base64 data URL 传入。
+
+          **Python — 单参考图编辑：**
+
+          ```python
+          import requests, base64
+
+          def to_data_url(path):
+              with open(path, "rb") as f:
+                  return "data:image/jpeg;base64," + base64.b64encode(f.read()).decode()
+
+          resp = requests.post(
+              "https://api.getinfinityblue.com/v1/images/edits",
+              headers={"Authorization": "Bearer YOUR_API_KEY",
+                       "Content-Type": "application/json"},
+              json={
+                  "model": "gpt-image-2",
+                  "prompt": "把主图中的笔头替换成参考图中的圆头软质刷头，其余不变",
+                  "image": to_data_url("主图.jpg"),
+                  "images": [to_data_url("参考图.jpg")],
+                  "size": "1024x1024",
+              },
+              timeout=300,
+          )
+          img = base64.b64decode(resp.json()["data"][0]["b64_json"])
+          open("edited.png", "wb").write(img)
+          ```
+
+          **Python — 多参考图风格融合：**
+
+          ```python
+          resp = requests.post(
+              "https://api.getinfinityblue.com/v1/images/edits",
+              headers={"Authorization": "Bearer YOUR_API_KEY",
+                       "Content-Type": "application/json"},
+              json={
+                  "model": "gpt-image-2",
+                  "prompt": "参考这些图片的风格，重新设计主图的配色方案",
+                  "image": to_data_url("主图.jpg"),
+                  "images": [to_data_url("风格参考1.jpg"),
+                             to_data_url("风格参考2.jpg")],
+                  "size": "1536x1024",
+                  "output_format": "png",
+              },
+              timeout=300,
+          )
+          ```
+
+          **Python — 产品背景替换（JPEG + URL 返回）：**
+
+          ```python
+          resp = requests.post(
+              "https://api.getinfinityblue.com/v1/images/edits",
+              headers={"Authorization": "Bearer YOUR_API_KEY",
+                       "Content-Type": "application/json"},
+              json={
+                  "model": "gpt-image-2",
+                  "prompt": "将主图中的产品背景替换为纯白摄影棚效果",
+                  "image": to_data_url("产品图.jpg"),
+                  "size": "2048x2048",
+                  "output_format": "jpeg",
+                  "output_compression": 85,
+                  "response_format": "url",
+              },
+              timeout=300,
+          )
+          image_url = resp.json()["data"][0]["url"]
+          ```
       requestBody:
         required: true
         content:

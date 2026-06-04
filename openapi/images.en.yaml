@@ -101,6 +101,63 @@ paths:
             difference between levels.
           - `output_format`: `png` (default) / `jpeg` / `webp`
           - `output_compression`: applies to `jpeg` / `webp` only, range `0`–`100`
+
+          ## Request examples
+
+          **Python — basic square image:**
+
+          ```python
+          import requests, base64, io
+          from PIL import Image
+
+          resp = requests.post(
+              "https://api.getinfinityblue.com/v1/images/generations",
+              headers={"Authorization": "Bearer YOUR_API_KEY",
+                       "Content-Type": "application/json"},
+              json={
+                  "model": "gpt-image-2",
+                  "prompt": "A cute baby sea otter floating on a blue ocean",
+                  "size": "1024x1024",
+              },
+              timeout=300,
+          )
+          img_data = base64.b64decode(resp.json()["data"][0]["b64_json"])
+          Image.open(io.BytesIO(img_data)).save("output.png")
+          ```
+
+          **curl — landscape JPEG:**
+
+          ```bash
+          curl -X POST https://api.getinfinityblue.com/v1/images/generations \
+            -H "Authorization: Bearer YOUR_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "model": "gpt-image-2",
+              "prompt": "Futuristic city at night, neon lights on rain-soaked streets",
+              "size": "1536x1024",
+              "output_format": "jpeg",
+              "output_compression": 80
+            }'
+          ```
+
+          **Python — get image URL (for storage):**
+
+          ```python
+          resp = requests.post(
+              "https://api.getinfinityblue.com/v1/images/generations",
+              headers={"Authorization": "Bearer YOUR_API_KEY",
+                       "Content-Type": "application/json"},
+              json={
+                  "model": "gpt-image-2",
+                  "prompt": "A minimalist red apple icon, flat design, white background",
+                  "size": "1024x1024",
+                  "response_format": "url",
+              },
+              timeout=300,
+          )
+          image_url = resp.json()["data"][0]["url"]
+          # Temporary URL — download or save promptly
+          ```
       requestBody:
         required: true
         content:
@@ -129,6 +186,21 @@ paths:
                   output_format: jpeg
                   output_compression: 80
                   size: 1024x1024
+              portrait:
+                summary: Portrait (vertical)
+                value:
+                  model: gpt-image-2
+                  prompt: An ancient lighthouse on a cliff edge, waves crashing against rocks, sunset glow
+                  size: 1024x1536
+                  output_format: png
+              webp_output:
+                summary: WebP format output
+                value:
+                  model: gpt-image-2
+                  prompt: A steaming bowl of Japanese ramen, top-down angle, food photography style
+                  size: 1024x1024
+                  output_format: webp
+                  output_compression: 90
               url_response:
                 summary: URL response format
                 value:
@@ -217,6 +289,77 @@ paths:
           | --- | --- |
           | `images` (multi-reference) | Supports 1–16 reference images |
           | `input_fidelity` | Auto high-fidelity; the API ignores manual settings |
+
+          ## Request examples
+
+          All examples below use `application/json` format with base64 data URLs.
+
+          **Python — single-reference edit:**
+
+          ```python
+          import requests, base64
+
+          def to_data_url(path):
+              with open(path, "rb") as f:
+                  return "data:image/jpeg;base64," + base64.b64encode(f.read()).decode()
+
+          resp = requests.post(
+              "https://api.getinfinityblue.com/v1/images/edits",
+              headers={"Authorization": "Bearer YOUR_API_KEY",
+                       "Content-Type": "application/json"},
+              json={
+                  "model": "gpt-image-2",
+                  "prompt": "Replace the pen tip with a round soft brush tip from the reference",
+                  "image": to_data_url("main.jpg"),
+                  "images": [to_data_url("reference.jpg")],
+                  "size": "1024x1024",
+              },
+              timeout=300,
+          )
+          img = base64.b64decode(resp.json()["data"][0]["b64_json"])
+          open("edited.png", "wb").write(img)
+          ```
+
+          **Python — multi-reference style fusion:**
+
+          ```python
+          resp = requests.post(
+              "https://api.getinfinityblue.com/v1/images/edits",
+              headers={"Authorization": "Bearer YOUR_API_KEY",
+                       "Content-Type": "application/json"},
+              json={
+                  "model": "gpt-image-2",
+                  "prompt": "Redesign the color scheme based on the styles in these references",
+                  "image": to_data_url("main.jpg"),
+                  "images": [to_data_url("style_ref_1.jpg"),
+                             to_data_url("style_ref_2.jpg")],
+                  "size": "1536x1024",
+                  "output_format": "png",
+              },
+              timeout=300,
+          )
+          ```
+
+          **Python — product background replacement (JPEG + URL):**
+
+          ```python
+          resp = requests.post(
+              "https://api.getinfinityblue.com/v1/images/edits",
+              headers={"Authorization": "Bearer YOUR_API_KEY",
+                       "Content-Type": "application/json"},
+              json={
+                  "model": "gpt-image-2",
+                  "prompt": "Replace the product background with a clean white studio backdrop",
+                  "image": to_data_url("product.jpg"),
+                  "size": "2048x2048",
+                  "output_format": "jpeg",
+                  "output_compression": 85,
+                  "response_format": "url",
+              },
+              timeout=300,
+          )
+          image_url = resp.json()["data"][0]["url"]
+          ```
       requestBody:
         required: true
         content:

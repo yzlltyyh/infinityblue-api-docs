@@ -53,7 +53,7 @@ paths:
       operationId: createImageGeneration
       description: |
         根据文本提示词生成图像。支持 `gpt-image-2` 模型，
-        提供灵活的尺寸配置、质量控制、背景透明度设置及流式局部图片返回等功能。
+        提供灵活的尺寸配置与多种输出格式。
 
         完全兼容 OpenAI Images API——把官方 SDK 的 base URL 指向 InfinityBlue 即可直接使用。
       x-mint:
@@ -66,7 +66,9 @@ paths:
 
           | 模型 ID | 说明 |
           | --- | --- |
-          | `gpt-image-2` | GPT Image 2，支持灵活尺寸、透明背景、流式部分图 |
+          | `gpt-image-2` | GPT Image 2，支持灵活尺寸与多种输出格式 |
+
+          > 快照版本（如 `gpt-image-2-2026-04-21`）暂不可用，请使用 `gpt-image-2`。
 
           ## 尺寸说明（`gpt-image-2`）
 
@@ -79,15 +81,17 @@ paths:
           常用预设：`1024x1024`、`1536x1024`（横向）、`1024x1536`（纵向）、
           `2048x2048`、`2048x1152`、`3840x2160`、`2160x3840`。
 
+          也支持自定义尺寸（如 `1024x768`），只要宽高均为 16 的倍数且符合上述约束即可。
+
           ## 流式输出
 
-          设置 `stream: true` 可在生成过程中逐步返回局部图像。
-          通过 `partial_images` 控制中间帧数量（`0`–`3`），
-          每张部分图像额外计入 `100` 个 output tokens。
+          本站暂不支持流式输出。`stream` 和 `partial_images` 参数会被接受但不生效，
+          响应始终以完整 JSON 一次性返回。
 
           ## 质量与格式
 
-          - `quality`：`low`（最快）/ `medium` / `high`（最高质量）/ `auto`（默认）
+          - `quality`：本站暂不支持 `quality` 分档，统一使用 `auto` 级别输出。
+            参数会被接受但各级别间无实际差异。
           - `output_format`：`png`（默认）/ `jpeg` / `webp`
           - `output_compression`：仅对 `jpeg` / `webp` 生效，取值 `0`–`100`
       requestBody:
@@ -102,7 +106,6 @@ paths:
                 value:
                   model: gpt-image-2
                   prompt: 一只可爱的海獭宝宝漂浮在蓝色海面上
-                  n: 1
                   size: 1024x1024
               high_quality:
                 summary: 高质量横向图
@@ -112,22 +115,21 @@ paths:
                   size: 1536x1024
                   quality: high
                   output_format: png
-              streaming:
-                summary: 流式生成（含局部图）
+              jpeg_compressed:
+                summary: JPEG 压缩输出
                 value:
                   model: gpt-image-2
                   prompt: 宁静的日式庭院，樱花飘落，阳光透过树叶洒下
-                  stream: true
-                  partial_images: 2
+                  output_format: jpeg
+                  output_compression: 80
                   size: 1024x1024
-              transparent_bg:
-                summary: 透明背景（PNG）
+              custom_size:
+                summary: 自定义尺寸（宽屏）
                 value:
                   model: gpt-image-2
-                  prompt: 白色背景上的红苹果图标，扁平设计风格
-                  background: transparent
+                  prompt: 未来都市全景，霓虹灯倒映在雨后的街道上，赛博朋克风格
+                  size: 2048x1152
                   output_format: png
-                  size: 1024x1024
       responses:
         "200":
           description: 成功生成图像
@@ -168,37 +170,69 @@ paths:
       operationId: createImageEdit
       description: |
         根据原始图像和文本提示创建编辑或扩展后的图像。
-        支持 `gpt-image-2` 模型，可提供遮罩区域以限定编辑范围，
-        也支持多张参考图输入以实现风格统一或素材融合。
+        支持 `gpt-image-2` 模型，可传入多张参考图实现风格统一或素材融合。
 
-        请求体为 `multipart/form-data` 格式，包含图像文件和文本参数。
+        请求体支持 `multipart/form-data`（上传文件）和 `application/json`（base64 data URL）两种格式。
       x-mint:
         metadata:
           title: 编辑图像
           sidebarTitle: 图像编辑（OpenAI 格式）
           description: 基于参考图和文本提示编辑图像，支持遮罩区域与多参考图输入
         content: |
-          ## 遮罩说明
-
-          - `mask`：PNG 文件，透明区域（alpha=0）指定编辑位置
-          - `input_image_mask`：`gpt-image-2` 推荐的遮罩字段，需包含 alpha 通道，
-            与输入图像尺寸相同
-
           ## 多参考图
 
           通过 `images` 字段可传入 1–16 张额外参考图（URL、base64 或 File ID），
           配合主图 `image` 实现多图参考生成。
+
+          ## 请求格式
+
+          支持两种请求格式：
+          - **`multipart/form-data`**：以文件方式上传图像
+          - **`application/json`**：以 base64 data URL（如 `data:image/jpeg;base64,...`）传入图像
+
+          ## 遮罩说明
+
+          - `mask` 和 `input_image_mask` 参数会被接受但当前不生效，
+            编辑始终作用于整图。如需局部编辑，建议在客户端自行合成。
+
+          ## 输出尺寸
+
+          建议显式传入 `size` 参数以获得可控的输出尺寸。
+          不传 `size` 时，输出尺寸可能受输入图像影响而不稳定。
 
           ## `gpt-image-2` 特有参数
 
           | 参数 | 说明 |
           | --- | --- |
           | `images`（多参考图） | 支持 1–16 张参考图 |
-          | `input_image_mask` | 推荐的遮罩字段，需含 alpha 通道 |
           | `input_fidelity` | 自动高保真，API 忽略手动设置 |
       requestBody:
         required: true
         content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ImageEditJsonRequest"
+            examples:
+              basic_edit:
+                summary: 基础图片编辑
+                value:
+                  model: gpt-image-2
+                  prompt: 把主图中的笔头替换成参考图中的圆头软质刷头，其余不变
+                  image: "data:image/jpeg;base64,<主图base64数据>"
+                  images:
+                    - "data:image/jpeg;base64,<参考图base64数据>"
+                  size: 1024x1024
+              multi_reference:
+                summary: 多参考图编辑
+                value:
+                  model: gpt-image-2
+                  prompt: 参考这些图片的风格，重新设计主图的配色方案
+                  image: "data:image/jpeg;base64,<主图base64数据>"
+                  images:
+                    - "data:image/jpeg;base64,<参考图1>"
+                    - "data:image/jpeg;base64,<参考图2>"
+                  size: 1536x1024
+                  output_format: png
           multipart/form-data:
             schema:
               $ref: "#/components/schemas/ImageEditRequest"
@@ -524,6 +558,7 @@ components:
           type: string
           description: |
             用于图像生成的模型 ID，传入 `gpt-image-2`。
+            快照版本（如 `gpt-image-2-2026-04-21`）暂不可用。
           examples:
             - gpt-image-2
         prompt:
@@ -535,11 +570,11 @@ components:
         n:
           type: integer
           minimum: 1
-          maximum: 10
+          maximum: 1
           default: 1
           description: |
-            要生成的图像数量。对于 `gpt-image-2`，默认为 `1`，
-            通常支持 `1` 到 `10`，具体上限取决于账户 tier。
+            本站暂不支持 `n` 参数，默认 `n=1`，每次请求输出 1 张图片。
+            如需多张图片，请循环调用接口。
         size:
           type: string
           default: auto
@@ -556,8 +591,8 @@ components:
           type: string
           description: |
             生成图像的背景设置。对于 `gpt-image-2`，默认为 `auto`，
-            可选 `transparent`（透明，需将 `output_format` 设为 `png` 或 `webp`）、
-            `opaque`（不透明）或 `auto`。
+            可选 `opaque`（不透明）或 `auto`。
+            `gpt-image-2` 不支持 `transparent`（透明背景），传入该值会返回 400 错误。
           enum:
             - opaque
             - transparent
@@ -573,8 +608,8 @@ components:
         quality:
           type: string
           description: |
-            生成图像的质量控制。对于 `gpt-image-2`，默认为 `auto`，
-            可选 `low`（最快）、`medium`、`high`（最高质量）。
+            本站暂不支持 `quality` 分档，统一使用 `auto` 级别输出。
+            参数会被接受但各级别间无实际差异。
           enum:
             - low
             - medium
@@ -584,11 +619,13 @@ components:
           type: boolean
           default: false
           description: |
-            是否以流式方式返回结果。对于 `gpt-image-2`，
-            设为 `true` 可在生成过程中逐步返回局部图像。
+            本站暂不支持流式输出。参数会被接受但不生效，
+            响应始终以完整 JSON 一次性返回。
         style:
           type: string
-          description: 图像风格（部分模型支持）。
+          description: |
+            图像风格参数，仅 DALL·E 3 支持。
+            `gpt-image-2` 下参数会被接受但无实际效果。
         output_format:
           type: string
           description: |
@@ -611,9 +648,17 @@ components:
           maximum: 3
           default: 0
           description: |
-            流式返回时的中间帧数量（0–3）。对于 `gpt-image-2`，
-            每张部分图像额外计入 100 个 output tokens，
-            仅在 `stream: true` 时生效。
+            流式返回时的中间帧数量（0–3）。依赖流式输出功能，
+            由于本站暂不支持流式输出，此参数当前不可用。
+        response_format:
+          type: string
+          default: b64_json
+          description: |
+            返回图像的格式。默认为 `b64_json`，返回 Base64 编码的图像数据；
+            设为 `url` 时返回图像的临时访问 URL（建议尽快下载或转存）。
+          enum:
+            - b64_json
+            - url
         user:
           type: string
           description: |
@@ -692,21 +737,25 @@ components:
           format: binary
           description: |
             遮罩图像文件，其完全透明区域（alpha=0）指定编辑位置。
-            对于 `gpt-image-2`，建议改用 `input_image_mask`。
+            本站当前不支持遮罩编辑，参数会被接受但不生效，编辑始终作用于整图。
         input_image_mask:
           type: string
           format: binary
           description: |
-            `gpt-image-2` 专用遮罩字段。需包含 alpha 通道，
-            且与输入图像尺寸相同，用于指定编辑区域。
+            `gpt-image-2` 专用遮罩字段。
+            本站当前不支持遮罩编辑，参数会被接受但不生效，编辑始终作用于整图。
         prompt:
           type: string
           description: 所需图像的文本描述，最大长度为 1000 个字符。
           examples:
             - 把图中的猫换成一只柴犬，保持背景不变
         n:
-          type: string
-          description: 要生成的图像数，须在 1–10 之间。
+          type: integer
+          minimum: 1
+          default: 1
+          description: |
+            本站暂不支持 `n` 参数，默认 `n=1`，每次请求输出 1 张图片。
+            如需多张图片，请循环调用接口。
         size:
           type: string
           description: |
@@ -728,10 +777,150 @@ components:
         model:
           type: string
           description: |
-            使用的图像模型。支持 `gpt-image-2`；
-            使用 `gpt-image-2` 时，`images` 和 `input_image_mask` 参数生效。
+            使用的图像模型，传入 `gpt-image-2`。
+            快照版本（如 `gpt-image-2-2026-04-21`）暂不可用。
           examples:
             - gpt-image-2
+        quality:
+          type: string
+          description: |
+            本站暂不支持 `quality` 分档，统一使用 `auto` 级别输出。
+            参数会被接受但各级别间无实际差异。
+          enum:
+            - low
+            - medium
+            - high
+            - auto
+        output_format:
+          type: string
+          description: |
+            输出图像的格式。默认为 `png`，可选 `png`、`jpeg`、`webp`。
+          enum:
+            - png
+            - jpeg
+            - webp
+        output_compression:
+          type: integer
+          minimum: 0
+          maximum: 100
+          description: |
+            输出图像的压缩质量（0–100），仅在 `output_format` 为 `jpeg` 或 `webp` 时生效。
+        background:
+          type: string
+          description: |
+            生成图像的背景设置。默认为 `auto`，可选 `opaque`（不透明）或 `auto`。
+            `gpt-image-2` 不支持 `transparent`（透明背景），传入该值会返回 400 错误。
+          enum:
+            - opaque
+            - auto
+        user:
+          type: string
+          description: 代表终端用户的唯一标识符，可用于监控和滥用检测。
+
+    ImageEditJsonRequest:
+      type: object
+      required:
+        - model
+        - prompt
+        - image
+      description: |
+        图像编辑请求体（JSON 格式）。图片以 base64 data URL（如 `data:image/jpeg;base64,...`）
+        或图片 URL 传入。
+      properties:
+        model:
+          type: string
+          description: |
+            使用的图像模型，传入 `gpt-image-2`。
+            快照版本（如 `gpt-image-2-2026-04-21`）暂不可用。
+          examples:
+            - gpt-image-2
+        prompt:
+          type: string
+          description: 所需图像编辑的文本描述，最大长度为 1000 个字符。
+          examples:
+            - 把主图中的笔头替换成参考图中的圆头软质刷头，其余不变
+        image:
+          type: string
+          description: |
+            主图像，支持 base64 data URL（如 `data:image/jpeg;base64,...`）或图片 URL。
+        images:
+          type: array
+          description: |
+            额外参考图像列表（1–16 张），支持 base64 data URL 或图片 URL。
+            配合主图 `image` 实现多图参考编辑。
+          items:
+            type: string
+        n:
+          type: integer
+          minimum: 1
+          default: 1
+          description: |
+            本站暂不支持 `n` 参数，默认 `n=1`，每次请求输出 1 张图片。
+            如需多张图片，请循环调用接口。
+        size:
+          type: string
+          description: |
+            输出图像的尺寸。参数规则与生成接口一致，默认为 `auto`。
+            建议显式传入以获得可控的输出尺寸。
+          examples:
+            - 1024x1024
+            - 1536x1024
+        response_format:
+          type: string
+          default: b64_json
+          description: |
+            返回图像的格式。默认为 `b64_json`，返回 Base64 编码的图像数据；
+            设为 `url` 时返回图像的临时访问 URL。
+          enum:
+            - b64_json
+            - url
+        output_format:
+          type: string
+          description: |
+            输出图像的格式。默认为 `png`，可选 `png`、`jpeg`、`webp`。
+          enum:
+            - png
+            - jpeg
+            - webp
+        output_compression:
+          type: integer
+          minimum: 0
+          maximum: 100
+          description: |
+            输出图像的压缩质量（0–100），仅在 `output_format` 为 `jpeg` 或 `webp` 时生效。
+        background:
+          type: string
+          description: |
+            生成图像的背景设置。默认为 `auto`，可选 `opaque`（不透明）或 `auto`。
+            `gpt-image-2` 不支持 `transparent`（透明背景），传入该值会返回 400 错误。
+          enum:
+            - opaque
+            - auto
+        quality:
+          type: string
+          description: |
+            本站暂不支持 `quality` 分档，统一使用 `auto` 级别输出。
+            参数会被接受但各级别间无实际差异。
+          enum:
+            - low
+            - medium
+            - high
+            - auto
+        mask:
+          type: string
+          description: |
+            遮罩图像，base64 data URL 格式。
+            本站当前不支持遮罩编辑，参数会被接受但不生效，编辑始终作用于整图。
+        input_image_mask:
+          type: string
+          description: |
+            `gpt-image-2` 专用遮罩字段，base64 data URL 格式。
+            本站当前不支持遮罩编辑，参数会被接受但不生效，编辑始终作用于整图。
+        input_fidelity:
+          type: string
+          description: |
+            输入保真度设置。对于 `gpt-image-2`，强制高保真，
+            API 会自动忽略此参数的手动设置。
         user:
           type: string
           description: 代表终端用户的唯一标识符，可用于监控和滥用检测。

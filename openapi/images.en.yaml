@@ -63,7 +63,7 @@ paths:
       x-mint:
         metadata:
           title: Create image generation
-          sidebarTitle: Text-to-image (OpenAI format)
+          sidebarTitle: Text-to-image
           description: Generate images from text prompts with configurable size, quality, and output format
         content: |
           ## Models you can use
@@ -109,18 +109,17 @@ paths:
               $ref: "#/components/schemas/ImageGenerationRequest"
             examples:
               basic:
-                summary: Basic text-to-image
+                summary: Basic square image
                 value:
                   model: gpt-image-2
                   prompt: A cute baby sea otter floating on a blue ocean
                   size: 1024x1024
-              high_quality:
-                summary: High-quality landscape image
+              landscape:
+                summary: Landscape widescreen
                 value:
                   model: gpt-image-2
                   prompt: Futuristic city at night, neon lights reflecting on rain-soaked streets, cyberpunk style
                   size: 1536x1024
-                  quality: high
                   output_format: png
               jpeg_compressed:
                 summary: JPEG compressed output
@@ -130,13 +129,13 @@ paths:
                   output_format: jpeg
                   output_compression: 80
                   size: 1024x1024
-              custom_size:
-                summary: Custom size (widescreen)
+              url_response:
+                summary: URL response format
                 value:
                   model: gpt-image-2
-                  prompt: Futuristic city panorama, neon lights reflecting on rain-soaked streets, cyberpunk style
-                  size: 2048x1152
-                  output_format: png
+                  prompt: A minimalist red apple icon, flat design style, white background
+                  size: 1024x1024
+                  response_format: url
       responses:
         "200":
           description: Image generated successfully
@@ -185,7 +184,7 @@ paths:
       x-mint:
         metadata:
           title: Create image edit
-          sidebarTitle: Image editing (OpenAI format)
+          sidebarTitle: Image editing
           description: Edit images using a reference image and text prompt, with support for masks and multiple references
         content: |
           ## Multiple reference images
@@ -226,7 +225,7 @@ paths:
               $ref: "#/components/schemas/ImageEditJsonRequest"
             examples:
               basic_edit:
-                summary: Basic image edit
+                summary: Single-reference edit
                 value:
                   model: gpt-image-2
                   prompt: Replace the pen tip in the main image with the round soft brush tip from the reference image, keep everything else unchanged
@@ -235,7 +234,7 @@ paths:
                     - "data:image/jpeg;base64,<reference_image_base64>"
                   size: 1024x1024
               multi_reference:
-                summary: Multi-reference edit
+                summary: Multi-reference style fusion
                 value:
                   model: gpt-image-2
                   prompt: Redesign the color scheme of the main image based on the styles in these reference images
@@ -245,6 +244,16 @@ paths:
                     - "data:image/jpeg;base64,<reference_2_base64>"
                   size: 1536x1024
                   output_format: png
+              jpeg_output:
+                summary: JPEG output with URL response
+                value:
+                  model: gpt-image-2
+                  prompt: Replace the product background in the main image with a clean white studio backdrop
+                  image: "data:image/jpeg;base64,<main_image_base64>"
+                  size: 2048x2048
+                  output_format: jpeg
+                  output_compression: 85
+                  response_format: url
           multipart/form-data:
             schema:
               $ref: "#/components/schemas/ImageEditRequest"

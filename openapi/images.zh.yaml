@@ -59,7 +59,7 @@ paths:
       x-mint:
         metadata:
           title: 生成图像
-          sidebarTitle: 文生图（OpenAI 格式）
+          sidebarTitle: 文生图
           description: 根据文本提示生成图像，支持多种尺寸、质量和输出格式
         content: |
           ## 可使用的模型
@@ -102,18 +102,17 @@ paths:
               $ref: "#/components/schemas/ImageGenerationRequest"
             examples:
               basic:
-                summary: 基础文生图
+                summary: 基础方图
                 value:
                   model: gpt-image-2
                   prompt: 一只可爱的海獭宝宝漂浮在蓝色海面上
                   size: 1024x1024
-              high_quality:
-                summary: 高质量横向图
+              landscape:
+                summary: 横向宽屏图
                 value:
                   model: gpt-image-2
                   prompt: 未来都市夜景，霓虹灯倒映在雨后的街道上，赛博朋克风格
                   size: 1536x1024
-                  quality: high
                   output_format: png
               jpeg_compressed:
                 summary: JPEG 压缩输出
@@ -123,13 +122,13 @@ paths:
                   output_format: jpeg
                   output_compression: 80
                   size: 1024x1024
-              custom_size:
-                summary: 自定义尺寸（宽屏）
+              url_response:
+                summary: 返回图片 URL
                 value:
                   model: gpt-image-2
-                  prompt: 未来都市全景，霓虹灯倒映在雨后的街道上，赛博朋克风格
-                  size: 2048x1152
-                  output_format: png
+                  prompt: 简约风格的红苹果图标，扁平设计，白色背景
+                  size: 1024x1024
+                  response_format: url
       responses:
         "200":
           description: 成功生成图像
@@ -176,7 +175,7 @@ paths:
       x-mint:
         metadata:
           title: 编辑图像
-          sidebarTitle: 图像编辑（OpenAI 格式）
+          sidebarTitle: 图像编辑
           description: 基于参考图和文本提示编辑图像，支持遮罩区域与多参考图输入
         content: |
           ## 多参考图
@@ -214,7 +213,7 @@ paths:
               $ref: "#/components/schemas/ImageEditJsonRequest"
             examples:
               basic_edit:
-                summary: 基础图片编辑
+                summary: 单参考图编辑
                 value:
                   model: gpt-image-2
                   prompt: 把主图中的笔头替换成参考图中的圆头软质刷头，其余不变
@@ -223,7 +222,7 @@ paths:
                     - "data:image/jpeg;base64,<参考图base64数据>"
                   size: 1024x1024
               multi_reference:
-                summary: 多参考图编辑
+                summary: 多参考图风格融合
                 value:
                   model: gpt-image-2
                   prompt: 参考这些图片的风格，重新设计主图的配色方案
@@ -233,6 +232,16 @@ paths:
                     - "data:image/jpeg;base64,<参考图2>"
                   size: 1536x1024
                   output_format: png
+              jpeg_output:
+                summary: JPEG 格式输出
+                value:
+                  model: gpt-image-2
+                  prompt: 将主图中的产品背景替换为纯白摄影棚效果
+                  image: "data:image/jpeg;base64,<主图base64数据>"
+                  size: 2048x2048
+                  output_format: jpeg
+                  output_compression: 85
+                  response_format: url
           multipart/form-data:
             schema:
               $ref: "#/components/schemas/ImageEditRequest"

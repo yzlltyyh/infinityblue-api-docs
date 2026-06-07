@@ -1,0 +1,623 @@
+openapi: 3.1.0
+info:
+  title: InfinityBlue API — Grok Imagine Video
+  version: "1.0.0"
+  summary: Grok Imagine video generation API (/v1/videos async)
+  description: |
+    Grok Imagine video generation API, using the `/v1/videos`
+    **asynchronous task model**: submit task → poll status → fetch result.
+
+    ## Usage notes
+
+    - **Resolution is selected by the model name**: use a `-480p` / `-720p`
+      suffixed model to choose the resolution; **do not pass a `resolution`
+      parameter**. For 720p, use `grok-imagine-video-720p`.
+    - **`size` only sets the aspect ratio** (e.g. `1280x720` → 16:9); it does
+      NOT set the resolution. Do not use `1792x1024` / `1024x1792`.
+    - Parameters such as `generate_audio`, `camera_fixed`, and `watermark` are
+      not supported. `grok-imagine-video-1.5-preview` is **image-to-video
+      only** (an input image is required) and includes synchronized audio.
+
+    ## Typical flow
+
+    1. `POST /v1/videos` — submit a task and receive a task object (with `id`)
+    2. `GET /v1/videos/{task_id}` — poll until `status` is `completed` or `failed`
+    3. Read the video URL from `metadata.url`, or stream the file via
+       `GET /v1/videos/{task_id}/content`
+
+    ## Authentication
+
+    Every request must include the API Key in the header:
+    ```
+    Authorization: Bearer YOUR_API_KEY
+    ```
+  contact:
+    name: InfinityBlue
+    url: https://getinfinityblue.com
+
+servers:
+  - url: https://api.getinfinityblue.com
+    description: Production
+
+security:
+  - bearerAuth: []
+
+tags:
+  - name: Grok Imagine Video
+    description: |
+      Grok Imagine video generation API, reusing the `/v1/videos` async task
+      model. Resolution is selected by the model-name suffix (`-480p` / `-720p`);
+      `size` only controls the aspect ratio.
+
+paths:
+  /v1/videos:
+    post:
+      tags:
+        - Grok Imagine Video
+      summary: Create a Grok video task
+      operationId: createGrokVideo
+      description: |
+        Create a Grok Imagine video generation task. Supports text-to-video,
+        image-to-video, and reference-to-video. On success it returns a task
+        object (with `id`); poll progress via `GET /v1/videos/{task_id}`.
+
+        Resolution is determined by the model-name suffix (`-480p` / `-720p`);
+        do not pass `resolution`. `size` only sets the aspect ratio.
+      x-mint:
+        metadata:
+          title: Create a Grok video task
+          sidebarTitle: Grok Imagine — Submit task
+          description: Submit a Grok Imagine text/image/reference video task; resolution is set by the model name
+        content: |
+          ## Available models
+
+          | Model ID | Resolution | Capabilities |
+          | --- | --- | --- |
+          | `grok-imagine-video-480p` | 480p | Text / image / reference to video, with audio |
+          | `grok-imagine-video-720p` | 720p | Text / image / reference to video, with audio |
+          | `grok-imagine-video-1.5-preview-480p` | 480p | Image-to-video only (input image required), with audio |
+          | `grok-imagine-video-1.5-preview-720p` | 720p | Image-to-video only (input image required), with audio |
+
+          ## Key: resolution is chosen by the model name
+
+          Grok video is **priced per resolution tier**, and the resolution is
+          selected via the **model-name suffix**: use `...-720p` for 720p and
+          `...-480p` for 480p. **Do not pass a `resolution` parameter** (it has
+          no effect). Each resolution has its own price — see the
+          [models & pricing page](https://api.getinfinityblue.com/pricing).
+
+          ## `size` only sets the aspect ratio
+
+          `size` (e.g. `1280x720`, `720x1280`) is used **only to determine the
+          aspect ratio** (landscape `16:9` / portrait `9:16`, etc.); it does
+          **not** set the resolution. Do not use `1792x1024` / `1024x1792`
+          (they are rejected).
+
+          ## Flow
+
+          1. `POST /v1/videos` — submit the task and get `id` (the `task_id`)
+          2. `GET /v1/videos/{task_id}` — poll until `status=completed`
+          3. Read the video URL from `metadata.url`, or download the stream via
+             `GET /v1/videos/{task_id}/content`
+
+          ## Image-to-video and reference-to-video
+
+          - **Image-to-video**: pass `image` or `input_reference` (URL or Base64
+            data URI); the model animates the image as the first frame.
+            `grok-imagine-video-1.5-preview` **requires** an input image.
+          - **Reference-to-video** (`grok-imagine-video` only): pass an `images`
+            array of reference images to guide generation; `image` and `images`
+            are mutually exclusive.
+
+          ## Duration
+
+          Specify with `seconds` (recommended, a string like `"5"`) or
+          `duration` (a number). The allowed range is 1–15 seconds.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GrokVideoCreateRequest"
+            examples:
+              text_to_video:
+                summary: Text-to-video (720p)
+                value:
+                  model: grok-imagine-video-720p
+                  prompt: A crystal-powered rocket lifts off from the red dunes of Mars as ancient ruins light up in the background, cinematic, stable shot
+                  seconds: "10"
+                  size: 1280x720
+              image_to_video_15preview:
+                summary: Image-to-video (1.5 Preview, 720p)
+                value:
+                  model: grok-imagine-video-1.5-preview-720p
+                  prompt: Make the waterfall cascade down slowly as the camera gently pulls back, with drifting mist
+                  input_reference: https://example.com/waterfall.png
+                  seconds: "8"
+                  size: 1280x720
+              image_to_video:
+                summary: Image-to-video (480p)
+                value:
+                  model: grok-imagine-video-480p
+                  prompt: Make the person in the photo slowly turn to look at the camera, background unchanged, camera pushes in slightly
+                  image: https://example.com/portrait.jpg
+                  seconds: "5"
+                  size: 720x1280
+              reference_video:
+                summary: Reference-to-video (multiple reference images, grok-imagine-video only)
+                value:
+                  model: grok-imagine-video-720p
+                  prompt: Using the character and style of these images, generate a shot of them walking through a city at night
+                  images:
+                    - https://example.com/reference-1.jpg
+                    - https://example.com/reference-2.jpg
+                  seconds: "6"
+                  size: 1280x720
+      responses:
+        "200":
+          description: Grok video task created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GrokVideoTask"
+              example:
+                id: video_abc123
+                object: video
+                model: grok-imagine-video-720p
+                status: queued
+                progress: 0
+                created_at: 1764347090922
+                seconds: "10"
+        "400":
+          description: Invalid request parameters
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Invalid or missing API Key
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /v1/videos/{task_id}:
+    get:
+      tags:
+        - Grok Imagine Video
+      summary: Get Grok video task status
+      operationId: getGrokVideo
+      description: |
+        Get the status, progress, and result of a Grok video task.
+        When the task completes, the video file URL is in `metadata.url`.
+      x-mint:
+        metadata:
+          title: Get Grok video task status
+          sidebarTitle: Grok Imagine — Get status
+          description: Poll a Grok video task for progress and the final video URL
+        content: |
+          ## Task status
+
+          | Status | Meaning |
+          | --- | --- |
+          | `queued` | Queued, waiting to be processed |
+          | `in_progress` | Generating; `progress` reflects the percentage |
+          | `completed` | Done; the video URL is in `metadata.url` |
+          | `failed` | Generation failed; see the `error` field |
+
+          ## Polling advice
+
+          Grok video tasks usually finish within tens of seconds to a few
+          minutes, depending on resolution and duration (720p is slower than
+          480p). Poll every 5–10 seconds and set a reasonable timeout.
+
+          ## Getting the video
+
+          Once complete, there are two ways to retrieve the video:
+          - Use the link in `metadata.url` directly (it expires — see
+            `expires_at` — so download promptly)
+          - Call `GET /v1/videos/{task_id}/content` to download through the API proxy
+      parameters:
+        - name: task_id
+          in: path
+          description: The video task ID returned by the create endpoint's `id` field.
+          required: true
+          schema:
+            type: string
+          example: video_abc123
+      responses:
+        "200":
+          description: Task status retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GrokVideoTask"
+              examples:
+                in_progress:
+                  summary: Generating
+                  value:
+                    id: video_abc123
+                    object: video
+                    model: grok-imagine-video-720p
+                    status: in_progress
+                    progress: 40
+                    created_at: 1764347090922
+                    seconds: "10"
+                completed:
+                  summary: Completed
+                  value:
+                    id: video_abc123
+                    object: video
+                    model: grok-imagine-video-720p
+                    status: completed
+                    progress: 100
+                    created_at: 1764347090922
+                    completed_at: 1764347170000
+                    seconds: "10"
+                    size: 1280x720
+                    metadata:
+                      url: https://example.com/generated-video.mp4
+        "400":
+          description: Invalid request parameters
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Invalid or missing API Key
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Task not found, not yet complete, or content expired
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /v1/videos/{task_id}/content:
+    get:
+      tags:
+        - Grok Imagine Video
+      summary: Get Grok video content
+      operationId: getGrokVideoContent
+      description: |
+        Get the video file content of a completed Grok video task.
+        The endpoint proxies/redirects to the video stream and returns the raw
+        `video/mp4` byte stream. Available only when `status=completed`;
+        otherwise it returns 404.
+      x-mint:
+        metadata:
+          title: Get Grok video content
+          sidebarTitle: Grok Imagine — Download video
+          description: Download the MP4 file of a completed Grok video task through the API proxy
+        content: |
+          ## When to use
+
+          Use this endpoint when you want to proxy the download through your own
+          server, or when accessing the `metadata.url` link directly is inconvenient.
+
+          ## Preconditions
+
+          - The task `status` must be `completed`
+          - The task has not expired (see the `expires_at` field)
+
+          ## Response format
+
+          On success it returns a `video/mp4` byte stream with HTTP 200.
+          The client should write the response body to a file or stream it to
+          the end user.
+
+          ## Alternative
+
+          If you only need the link, just read `metadata.url` from the
+          `GET /v1/videos/{task_id}` response — no need to download via this endpoint.
+      parameters:
+        - name: task_id
+          in: path
+          description: The video task ID returned by the create endpoint's `id` field.
+          required: true
+          schema:
+            type: string
+          example: video_abc123
+      responses:
+        "200":
+          description: Video content retrieved successfully, returns the raw MP4 byte stream
+          content:
+            video/mp4:
+              schema:
+                type: string
+                format: binary
+                description: The raw byte stream of the video file.
+        "400":
+          description: Invalid request parameters
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Invalid or missing API Key
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Task not found, not yet complete, or content expired
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: API Key
+      description: |
+        Bearer Token authentication, format: `Authorization: Bearer sk-xxxxxx`.
+        Get an API Key in the [console](https://api.getinfinityblue.com/console).
+
+  schemas:
+    GrokVideoCreateRequest:
+      type: object
+      description: |
+        Grok Imagine video generation request. `model` and `prompt` are required.
+        Resolution is determined by the model-name suffix (`-480p` / `-720p`); do
+        not pass `resolution`. `size` only sets the aspect ratio.
+      required:
+        - model
+        - prompt
+      properties:
+        model:
+          type: string
+          description: |
+            Model ID. **Resolution is determined by the suffix** (`-480p` /
+            `-720p`) and is priced per resolution tier. `grok-imagine-video`
+            supports text/image/reference to video;
+            `grok-imagine-video-1.5-preview` is image-to-video only (input image required).
+          enum:
+            - grok-imagine-video-480p
+            - grok-imagine-video-720p
+            - grok-imagine-video-1.5-preview-480p
+            - grok-imagine-video-1.5-preview-720p
+          examples:
+            - grok-imagine-video-720p
+        prompt:
+          type: string
+          description: |
+            Text prompt describing the video content, motion, scene, camera, and
+            style. For image-to-video, describe the desired motion and changes.
+          examples:
+            - A crystal-powered rocket lifts off from the red dunes of Mars, cinematic, stable shot
+        size:
+          type: string
+          description: |
+            Frame size, e.g. `1280x720`. Used **only to determine the aspect
+            ratio** (landscape `16:9` / portrait `9:16`, etc.); it does **not**
+            set the resolution (resolution comes from the model-name suffix).
+            Do not use `1792x1024` / `1024x1792` (rejected).
+          examples:
+            - 1280x720
+        seconds:
+          type: string
+          description: |
+            Recommended. Video duration in seconds, preferably a string (e.g.
+            `"5"`). Allowed range 1–15 seconds. Do not combine with `duration`.
+          examples:
+            - "5"
+        duration:
+          type: number
+          description: |
+            Compatibility field. Video duration in seconds, allowed range 1–15.
+            New integrations should use the top-level `seconds`; do not combine
+            with `seconds`.
+          minimum: 1
+          maximum: 15
+          examples:
+            - 5
+        image:
+          type: string
+          description: |
+            Single input image, URL or Base64 data URI. Setting it triggers
+            image-to-video mode. `grok-imagine-video-1.5-preview` requires an
+            input image. Mutually exclusive with `images`.
+          examples:
+            - https://example.com/image.jpg
+        input_reference:
+          type: string
+          description: |
+            Input image (Sora-style field), URL or Base64 data URI, equivalent
+            to `image`. Used for image-to-video; provide either `image` or this.
+          examples:
+            - https://example.com/image.jpg
+        images:
+          type: array
+          description: |
+            Multiple reference images, URL or Base64. Used for reference-to-video
+            mode (`grok-imagine-video` only). Mutually exclusive with `image`.
+          items:
+            type: string
+          examples:
+            - - https://example.com/reference-1.jpg
+              - https://example.com/reference-2.jpg
+        user:
+          type: string
+          description: End-user identifier for auditing and risk control; not used in generation.
+          examples:
+            - user-1234
+
+    GrokVideoTask:
+      type: object
+      description: Grok video task object, compatible with the OpenAI / Sora video task format.
+      required:
+        - id
+        - object
+        - model
+        - status
+        - progress
+        - created_at
+        - seconds
+      properties:
+        id:
+          type: string
+          description: Video task ID.
+          examples:
+            - video_abc123
+        object:
+          type: string
+          description: Object type, always `video`.
+          enum:
+            - video
+          examples:
+            - video
+        model:
+          type: string
+          description: The model used to run the task.
+          enum:
+            - grok-imagine-video-480p
+            - grok-imagine-video-720p
+            - grok-imagine-video-1.5-preview-480p
+            - grok-imagine-video-1.5-preview-720p
+          examples:
+            - grok-imagine-video-720p
+        status:
+          type: string
+          description: Task status.
+          enum:
+            - queued
+            - in_progress
+            - completed
+            - failed
+          examples:
+            - queued
+        progress:
+          type: integer
+          description: Task progress percentage (0–100).
+          minimum: 0
+          maximum: 100
+          examples:
+            - 0
+        created_at:
+          type: integer
+          format: int64
+          description: Task creation timestamp (milliseconds).
+          examples:
+            - 1764347090922
+        seconds:
+          type: string
+          description: Video duration in seconds.
+          examples:
+            - "10"
+        completed_at:
+          type: integer
+          format: int64
+          description: Task completion timestamp (milliseconds), filled once complete.
+          examples:
+            - 1764347170000
+        expires_at:
+          type: integer
+          format: int64
+          description: Expiration timestamp (milliseconds) of the task and the video file.
+          examples:
+            - 1764433570000
+        size:
+          type: string
+          description: |
+            Actual output size, e.g. `1280x720`. The actual resolution comes
+            from the model-name suffix; the aspect ratio comes from the request `size`.
+          examples:
+            - 1280x720
+        error:
+          $ref: "#/components/schemas/GrokVideoError"
+        metadata:
+          type: object
+          description: Extra metadata; usually contains a `url` field once complete.
+          additionalProperties: true
+          properties:
+            url:
+              type: string
+              format: uri
+              description: Video file URL.
+              examples:
+                - https://example.com/generated-video.mp4
+
+    GrokVideoError:
+      type: object
+      description: Grok video task error info.
+      properties:
+        message:
+          type: string
+          description: Error message.
+          examples:
+            - generation failed
+        code:
+          type: string
+          description: Error code.
+          examples:
+            - generation_failed
+
+    ErrorResponse:
+      type: object
+      description: Standard error response.
+      properties:
+        error:
+          type: object
+          properties:
+            message:
+              type: string
+              description: Error message.
+              examples:
+                - Invalid duration. The supported range is 1 to 15 seconds.
+            type:
+              type: string
+              description: Error type.
+              examples:
+                - invalid_request_error
+            param:
+              type: [string, "null"]
+              description: The related parameter.
+              examples:
+                - seconds
+            code:
+              type: [string, "null"]
+              description: Error code.
+              examples:
+                - invalid_duration

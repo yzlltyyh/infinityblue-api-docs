@@ -4,7 +4,7 @@
   "description": "InfinityBlue API documentation — OpenAPI spec + Mintlify site",
   "private": true,
   "scripts": {
-    "lint": "redocly lint openapi/chat.zh.yaml openapi/chat.en.yaml openapi/images.zh.yaml openapi/images.en.yaml openapi/videos.zh.yaml openapi/videos.en.yaml openapi/models.zh.yaml openapi/models.en.yaml",
+    "lint": "redocly lint openapi/chat.zh.yaml openapi/chat.en.yaml openapi/images.zh.yaml openapi/images.en.yaml openapi/videos.zh.yaml openapi/videos.en.yaml openapi/grok-video.zh.yaml openapi/grok-video.en.yaml openapi/models.zh.yaml openapi/models.en.yaml",
     "validate": "mint validate",
     "dev": "mint dev"
   },

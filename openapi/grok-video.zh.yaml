@@ -1,0 +1,607 @@
+openapi: 3.1.0
+info:
+  title: InfinityBlue API — Grok Imagine 视频
+  version: "1.0.0"
+  summary: Grok Imagine 视频生成接口（/v1/videos 异步）
+  description: |
+    Grok Imagine 系列视频生成接口，采用 `/v1/videos` **异步任务模型**：
+    提交任务 → 轮询状态 → 获取结果。
+
+    ## 使用要点
+
+    - **分辨率由模型名决定**：用 `-480p` / `-720p` 后缀的模型来选择分辨率，
+      **不要传入 `resolution` 参数**。例如 720p 用 `grok-imagine-video-720p`。
+    - **`size` 仅决定画幅比例**（如 `1280x720` → 16:9），不决定分辨率；
+      请勿使用 `1792x1024` / `1024x1792`。
+    - 不支持 `generate_audio`、`camera_fixed`、`watermark` 等参数；
+      `grok-imagine-video-1.5-preview` **仅支持图生视频**（必须带输入图），且自带同步音频。
+
+    ## 典型调用流程
+
+    1. `POST /v1/videos` — 提交任务，获取任务对象（含 `id`）
+    2. `GET /v1/videos/{task_id}` — 轮询状态，直到 `status` 为 `completed` 或 `failed`
+    3. 从 `metadata.url` 读取视频 URL，或 `GET /v1/videos/{task_id}/content` 直接下载视频流
+
+    ## 认证
+
+    所有请求需在请求头中携带 API Key：
+    ```
+    Authorization: Bearer YOUR_API_KEY
+    ```
+  contact:
+    name: InfinityBlue
+    url: https://getinfinityblue.com
+
+servers:
+  - url: https://api.getinfinityblue.com
+    description: 生产环境
+
+security:
+  - bearerAuth: []
+
+tags:
+  - name: Grok Imagine 视频
+    description: |
+      Grok Imagine 系列视频生成接口，复用 `/v1/videos` 异步任务模型。
+      分辨率由模型名后缀（`-480p` / `-720p`）决定，`size` 仅控制画幅比例。
+
+paths:
+  /v1/videos:
+    post:
+      tags:
+        - Grok Imagine 视频
+      summary: 创建 Grok 视频任务
+      operationId: createGrokVideo
+      description: |
+        创建 Grok Imagine 视频生成任务，支持文生视频、图生视频与参考视频。
+        成功后返回任务对象（含 `id`），使用 `GET /v1/videos/{task_id}` 轮询进度。
+
+        分辨率由模型名后缀决定（`-480p` / `-720p`），请勿传 `resolution`；
+        `size` 仅决定画幅比例。
+      x-mint:
+        metadata:
+          title: 创建 Grok 视频任务
+          sidebarTitle: Grok Imagine — 提交任务
+          description: 提交 Grok Imagine 文生/图生/参考视频任务，分辨率由模型名决定
+        content: |
+          ## 可用模型
+
+          | 模型 ID | 分辨率 | 能力 |
+          | --- | --- | --- |
+          | `grok-imagine-video-480p` | 480p | 文生 / 图生 / 参考视频，自带音频 |
+          | `grok-imagine-video-720p` | 720p | 文生 / 图生 / 参考视频，自带音频 |
+          | `grok-imagine-video-1.5-preview-480p` | 480p | 仅图生视频（必须带输入图），自带音频 |
+          | `grok-imagine-video-1.5-preview-720p` | 720p | 仅图生视频（必须带输入图），自带音频 |
+
+          ## 关键：分辨率由模型名决定
+
+          Grok 视频按**分辨率分档计费**，分辨率通过**模型名后缀**选择：
+          需要 720p 就调用 `...-720p`，需要 480p 就调用 `...-480p`。
+          **不要传入 `resolution` 参数**（不生效）。不同分辨率对应不同单价，
+          以 [模型与价格页](https://api.getinfinityblue.com/pricing) 为准。
+
+          ## size 仅决定画幅比例
+
+          `size`（如 `1280x720`、`720x1280`）**只用来确定画幅比例**
+          （横屏 `16:9` / 竖屏 `9:16` 等），**不决定分辨率**。
+          请勿使用 `1792x1024` / `1024x1792`，这两个尺寸不被接受。
+
+          ## 调用流程
+
+          1. `POST /v1/videos` — 提交任务，获取 `id`（即 `task_id`）
+          2. `GET /v1/videos/{task_id}` — 轮询，直到 `status=completed`
+          3. 从 `metadata.url` 读取视频 URL，或通过
+             `GET /v1/videos/{task_id}/content` 直接下载视频流
+
+          ## 图生视频与参考视频
+
+          - **图生视频**：传入 `image` 或 `input_reference`（URL 或 Base64 Data URI），
+            模型将以该图片为首帧动态化。`grok-imagine-video-1.5-preview` **必须**带输入图。
+          - **参考视频**（仅 `grok-imagine-video`）：传入 `images` 数组提供多张参考图，
+            引导生成内容；`image` 与 `images` 二选一。
+
+          ## 时长
+
+          通过 `seconds`（推荐，字符串如 `"5"`）或 `duration`（数字）指定，
+          允许范围 1–15 秒。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GrokVideoCreateRequest"
+            examples:
+              text_to_video:
+                summary: 文生视频（720p）
+                value:
+                  model: grok-imagine-video-720p
+                  prompt: 一枚水晶动力火箭从火星的红色沙丘上升空，背景的远古遗迹随之亮起，电影感镜头，画面稳定
+                  seconds: "10"
+                  size: 1280x720
+              image_to_video_15preview:
+                summary: 图生视频（1.5 Preview，720p）
+                value:
+                  model: grok-imagine-video-1.5-preview-720p
+                  prompt: 让画面中的瀑布缓缓倾泻而下，镜头轻轻向后拉远，水雾弥漫
+                  input_reference: https://example.com/waterfall.png
+                  seconds: "8"
+                  size: 1280x720
+              image_to_video:
+                summary: 图生视频（480p）
+                value:
+                  model: grok-imagine-video-480p
+                  prompt: 让图片中的人物缓缓转头看向镜头，背景保持不变，镜头轻微推进
+                  image: https://example.com/portrait.jpg
+                  seconds: "5"
+                  size: 720x1280
+              reference_video:
+                summary: 参考视频（多张参考图，仅 grok-imagine-video）
+                value:
+                  model: grok-imagine-video-720p
+                  prompt: 参考这些图片的角色与风格，生成一段在城市夜景中行走的镜头
+                  images:
+                    - https://example.com/reference-1.jpg
+                    - https://example.com/reference-2.jpg
+                  seconds: "6"
+                  size: 1280x720
+      responses:
+        "200":
+          description: 成功创建 Grok 视频任务
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GrokVideoTask"
+              example:
+                id: video_abc123
+                object: video
+                model: grok-imagine-video-720p
+                status: queued
+                progress: 0
+                created_at: 1764347090922
+                seconds: "10"
+        "400":
+          description: 请求参数错误
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: API Key 无效或缺失
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: 请求频率超限
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: 服务器内部错误
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /v1/videos/{task_id}:
+    get:
+      tags:
+        - Grok Imagine 视频
+      summary: 获取 Grok 视频任务状态
+      operationId: getGrokVideo
+      description: |
+        获取 Grok 视频任务的状态、进度和结果。
+        任务完成后，视频文件 URL 位于 `metadata.url` 字段。
+      x-mint:
+        metadata:
+          title: 获取 Grok 视频任务状态
+          sidebarTitle: Grok Imagine — 查询状态
+          description: 轮询 Grok 视频任务，获取进度和最终视频 URL
+        content: |
+          ## 任务状态说明
+
+          | 状态 | 含义 |
+          | --- | --- |
+          | `queued` | 排队等待处理 |
+          | `in_progress` | 生成中，`progress` 字段反映百分比进度 |
+          | `completed` | 已完成，视频 URL 位于 `metadata.url` |
+          | `failed` | 生成失败，查看 `error` 字段了解原因 |
+
+          ## 轮询建议
+
+          Grok 视频任务通常在数十秒到数分钟内完成，具体取决于分辨率与时长
+          （720p 比 480p 更慢）。建议每 5–10 秒轮询一次，并设置合理超时时间。
+
+          ## 获取视频
+
+          完成后有两种方式获取视频：
+          - 直接使用 `metadata.url` 中的链接（有效期见 `expires_at`，请尽快下载）
+          - 调用 `GET /v1/videos/{task_id}/content` 通过接口代理下载
+      parameters:
+        - name: task_id
+          in: path
+          description: 视频任务 ID，由创建接口返回的 `id` 字段。
+          required: true
+          schema:
+            type: string
+          example: video_abc123
+      responses:
+        "200":
+          description: 成功获取视频任务状态
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GrokVideoTask"
+              examples:
+                in_progress:
+                  summary: 生成中
+                  value:
+                    id: video_abc123
+                    object: video
+                    model: grok-imagine-video-720p
+                    status: in_progress
+                    progress: 40
+                    created_at: 1764347090922
+                    seconds: "10"
+                completed:
+                  summary: 已完成
+                  value:
+                    id: video_abc123
+                    object: video
+                    model: grok-imagine-video-720p
+                    status: completed
+                    progress: 100
+                    created_at: 1764347090922
+                    completed_at: 1764347170000
+                    seconds: "10"
+                    size: 1280x720
+                    metadata:
+                      url: https://example.com/generated-video.mp4
+        "400":
+          description: 请求参数错误
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: API Key 无效或缺失
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: 任务不存在、尚未完成或内容已过期
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: 请求频率超限
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: 服务器内部错误
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /v1/videos/{task_id}/content:
+    get:
+      tags:
+        - Grok Imagine 视频
+      summary: 获取 Grok 视频内容
+      operationId: getGrokVideoContent
+      description: |
+        获取已完成的 Grok 视频任务的视频文件内容。
+        接口代理/重定向至视频文件流，返回原始 `video/mp4` 字节流。
+        仅当任务 `status=completed` 时可用，未完成时返回 404。
+      x-mint:
+        metadata:
+          title: 获取 Grok 视频内容
+          sidebarTitle: Grok Imagine — 下载视频
+          description: 通过接口代理下载已完成 Grok 视频任务的 MP4 文件
+        content: |
+          ## 使用场景
+
+          当你需要在自己的服务器中代理视频下载，或不方便直接访问
+          `metadata.url` 中的链接时，可使用此接口。
+
+          ## 前置条件
+
+          - 任务 `status` 必须为 `completed`
+          - 任务未过期（参考 `expires_at` 字段）
+
+          ## 响应格式
+
+          成功时返回 `video/mp4` 字节流，HTTP 状态码为 200。
+          客户端应将响应体直接写入文件或通过流传输给终端用户。
+
+          ## 替代方案
+
+          如果只需要链接，直接读取
+          `GET /v1/videos/{task_id}` 响应中的 `metadata.url` 即可，
+          无需通过此接口下载。
+      parameters:
+        - name: task_id
+          in: path
+          description: 视频任务 ID，由创建接口返回的 `id` 字段。
+          required: true
+          schema:
+            type: string
+          example: video_abc123
+      responses:
+        "200":
+          description: 成功获取视频内容，返回原始 MP4 字节流
+          content:
+            video/mp4:
+              schema:
+                type: string
+                format: binary
+                description: 视频文件的原始字节流。
+        "400":
+          description: 请求参数错误
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: API Key 无效或缺失
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: 任务不存在、尚未完成或内容已过期
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: 请求频率超限
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: 服务器内部错误
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: API Key
+      description: |
+        使用 Bearer Token 认证，格式：`Authorization: Bearer sk-xxxxxx`。
+        在 [控制台](https://api.getinfinityblue.com/console) 获取 API Key。
+
+  schemas:
+    GrokVideoCreateRequest:
+      type: object
+      description: |
+        Grok Imagine 视频生成请求。`model` 与 `prompt` 为必填字段。
+        分辨率由模型名后缀（`-480p` / `-720p`）决定，请勿传 `resolution`；
+        `size` 仅决定画幅比例。
+      required:
+        - model
+        - prompt
+      properties:
+        model:
+          type: string
+          description: |
+            模型 ID。**分辨率由后缀决定**（`-480p` / `-720p`），并按分辨率分档计费。
+            `grok-imagine-video` 支持文生/图生/参考视频；
+            `grok-imagine-video-1.5-preview` 仅支持图生视频（必须带输入图）。
+          enum:
+            - grok-imagine-video-480p
+            - grok-imagine-video-720p
+            - grok-imagine-video-1.5-preview-480p
+            - grok-imagine-video-1.5-preview-720p
+          examples:
+            - grok-imagine-video-720p
+        prompt:
+          type: string
+          description: |
+            文本描述提示词，描述视频内容、动作、场景、镜头语言与风格。
+            图生视频时用于描述期望的运动与变化。
+          examples:
+            - 一枚水晶动力火箭从火星的红色沙丘上升空，电影感镜头，画面稳定
+        size:
+          type: string
+          description: |
+            画幅尺寸，格式如 `1280x720`。**仅用于确定画幅比例**
+            （横屏 `16:9` / 竖屏 `9:16` 等），**不决定分辨率**（分辨率由模型名后缀决定）。
+            请勿使用 `1792x1024` / `1024x1792`（不被接受）。
+          examples:
+            - 1280x720
+        seconds:
+          type: string
+          description: |
+            推荐使用。视频时长，单位秒，建议传字符串（如 `"5"`）。
+            允许范围 1–15 秒。不要与 `duration` 同时传入。
+          examples:
+            - "5"
+        duration:
+          type: number
+          description: |
+            兼容字段。视频时长，单位秒，允许范围 1–15。
+            新接入推荐使用顶层 `seconds`，不要与 `seconds` 同时传入。
+          minimum: 1
+          maximum: 15
+          examples:
+            - 5
+        image:
+          type: string
+          description: |
+            单张输入图片，URL 或 Base64 Data URI。设置后触发图生视频模式。
+            `grok-imagine-video-1.5-preview` 必须提供输入图。与 `images` 二选一。
+          examples:
+            - https://example.com/image.jpg
+        input_reference:
+          type: string
+          description: |
+            输入图片（Sora 风格字段），URL 或 Base64 Data URI，等价于 `image`。
+            用于图生视频；与 `image` 任填其一即可。
+          examples:
+            - https://example.com/image.jpg
+        images:
+          type: array
+          description: |
+            多张参考图片，URL 或 Base64。用于参考视频模式
+            （仅 `grok-imagine-video` 支持）。与 `image` 互斥。
+          items:
+            type: string
+          examples:
+            - - https://example.com/reference-1.jpg
+              - https://example.com/reference-2.jpg
+        user:
+          type: string
+          description: 终端用户标识，用于业务侧审计和风控，不参与生成。
+          examples:
+            - user-1234
+
+    GrokVideoTask:
+      type: object
+      description: Grok 视频任务对象，兼容 OpenAI / Sora 视频任务格式。
+      required:
+        - id
+        - object
+        - model
+        - status
+        - progress
+        - created_at
+        - seconds
+      properties:
+        id:
+          type: string
+          description: 视频任务 ID。
+          examples:
+            - video_abc123
+        object:
+          type: string
+          description: 对象类型，固定为 `video`。
+          enum:
+            - video
+          examples:
+            - video
+        model:
+          type: string
+          description: 执行任务所用的模型。
+          enum:
+            - grok-imagine-video-480p
+            - grok-imagine-video-720p
+            - grok-imagine-video-1.5-preview-480p
+            - grok-imagine-video-1.5-preview-720p
+          examples:
+            - grok-imagine-video-720p
+        status:
+          type: string
+          description: 任务状态。
+          enum:
+            - queued
+            - in_progress
+            - completed
+            - failed
+          examples:
+            - queued
+        progress:
+          type: integer
+          description: 任务进度百分比（0–100）。
+          minimum: 0
+          maximum: 100
+          examples:
+            - 0
+        created_at:
+          type: integer
+          format: int64
+          description: 任务创建时间戳（毫秒）。
+          examples:
+            - 1764347090922
+        seconds:
+          type: string
+          description: 视频时长，单位秒。
+          examples:
+            - "10"
+        completed_at:
+          type: integer
+          format: int64
+          description: 任务完成时间戳（毫秒），完成后填充。
+          examples:
+            - 1764347170000
+        expires_at:
+          type: integer
+          format: int64
+          description: 任务及视频文件的过期时间戳（毫秒）。
+          examples:
+            - 1764433570000
+        size:
+          type: string
+          description: |
+            实际输出尺寸，格式如 `1280x720`。
+            实际分辨率由模型名后缀决定，画幅比例由请求的 `size` 决定。
+          examples:
+            - 1280x720
+        error:
+          $ref: "#/components/schemas/GrokVideoError"
+        metadata:
+          type: object
+          description: 额外元数据，任务完成后通常包含 `url` 字段。
+          additionalProperties: true
+          properties:
+            url:
+              type: string
+              format: uri
+              description: 视频文件 URL。
+              examples:
+                - https://example.com/generated-video.mp4
+
+    GrokVideoError:
+      type: object
+      description: Grok 视频任务错误信息。
+      properties:
+        message:
+          type: string
+          description: 错误信息。
+          examples:
+            - generation failed
+        code:
+          type: string
+          description: 错误码。
+          examples:
+            - generation_failed
+
+    ErrorResponse:
+      type: object
+      description: 标准错误响应。
+      properties:
+        error:
+          type: object
+          properties:
+            message:
+              type: string
+              description: 错误信息。
+              examples:
+                - 无效的时长。支持的范围为 1 到 15 秒。
+            type:
+              type: string
+              description: 错误类型。
+              examples:
+                - invalid_request_error
+            param:
+              type: [string, "null"]
+              description: 相关参数。
+              examples:
+                - seconds
+            code:
+              type: [string, "null"]
+              description: 错误代码。
+              examples:
+                - invalid_duration

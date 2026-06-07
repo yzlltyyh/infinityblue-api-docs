@@ -117,6 +117,18 @@
                     ]
                   },
                   {
+                    "group": "Grok Imagine 视频",
+                    "openapi": {
+                      "source": "openapi/grok-video.zh.yaml",
+                      "directory": "zh-grokvideo"
+                    },
+                    "pages": [
+                      "POST /v1/videos",
+                      "GET /v1/videos/{task_id}",
+                      "GET /v1/videos/{task_id}/content"
+                    ]
+                  },
+                  {
                     "group": "通用视频接口",
                     "openapi": {
                       "source": "openapi/videos.zh.yaml",
@@ -239,6 +251,18 @@
                     "openapi": {
                       "source": "openapi/videos.en.yaml",
                       "directory": "en-videos"
+                    },
+                    "pages": [
+                      "POST /v1/videos",
+                      "GET /v1/videos/{task_id}",
+                      "GET /v1/videos/{task_id}/content"
+                    ]
+                  },
+                  {
+                    "group": "Grok Imagine Video",
+                    "openapi": {
+                      "source": "openapi/grok-video.en.yaml",
+                      "directory": "en-grokvideo"
                     },
                     "pages": [
                       "POST /v1/videos",

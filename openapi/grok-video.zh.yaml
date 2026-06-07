@@ -271,7 +271,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
         "404":
-          description: 任务不存在、尚未完成或内容已过期
+          description: 任务不存在（未完成的任务返回 200 + `in_progress`）
           content:
             application/json:
               schema:

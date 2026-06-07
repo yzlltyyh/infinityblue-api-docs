@@ -104,6 +104,10 @@ distinct `directory` per **(language, category)**: `zh-chat`, `en-chat`,
   - video: `doubao-seedance-2-0-260128` / `doubao-seedance-2-0-fast-260128` /
     `veo_3_1` (and `-fast` / `-4K` variants) / `kling-v2-5-turbo` /
     `kling-v2-1-master`
+  - video (Grok Imagine, `/v1/videos`): `grok-imagine-video-480p` /
+    `grok-imagine-video-720p` / `grok-imagine-video-1.5-preview-480p` /
+    `grok-imagine-video-1.5-preview-720p` — resolution is selected by the
+    model-name suffix (`-480p` / `-720p`), priced per resolution tier
   **Never** invent or use a model that is NOT on the pricing page — e.g.
   `gpt-4o`, `dall-e-*`, `whisper-*`, `o3`, `claude-*`, `text-embedding-*`,
   `sora-*`. The relay does not offer these.

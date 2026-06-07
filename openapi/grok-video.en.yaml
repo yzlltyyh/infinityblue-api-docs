@@ -282,7 +282,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
         "404":
-          description: Task not found, not yet complete, or content expired
+          description: Task not found (an unfinished task returns 200 with `in_progress`)
           content:
             application/json:
               schema:

@@ -107,7 +107,9 @@ paths:
             `grok-imagine-video-1.5-preview` **requires** an input image.
           - **Reference-to-video** (`grok-imagine-video` only): pass an `images`
             array of reference images to guide generation; `image` and `images`
-            are mutually exclusive.
+            are mutually exclusive. A compatibility alias `ref_images` (a
+            root-level array equivalent to `images`; use one or the other, not
+            both) also works; new integrations should prefer `images`.
 
           ## Duration
 
@@ -473,6 +475,18 @@ components:
           description: |
             Multiple reference images, URL or Base64. Used for reference-to-video
             mode (`grok-imagine-video` only). Mutually exclusive with `image`.
+            The **recommended** field for multi-image reference.
+          items:
+            type: string
+          examples:
+            - - https://example.com/reference-1.jpg
+              - https://example.com/reference-2.jpg
+        ref_images:
+          type: array
+          description: |
+            **Compatibility alias** for the reference-images array, equivalent to
+            `images` (use one or the other, not both). For clients that follow
+            this convention; new integrations should prefer `images`.
           items:
             type: string
           examples:

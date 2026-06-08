@@ -99,6 +99,8 @@ paths:
             模型将以该图片为首帧动态化。`grok-imagine-video-1.5-preview` **必须**带输入图。
           - **参考视频**（仅 `grok-imagine-video`）：传入 `images` 数组提供多张参考图，
             引导生成内容；`image` 与 `images` 二选一。
+            兼容别名 `ref_images`（根级数组，与 `images` 等价、择一即可、勿同时传）也可用，
+            供沿用此约定的客户端使用；新接入**推荐 `images`**。
 
           ## 时长
 
@@ -456,7 +458,17 @@ components:
           type: array
           description: |
             多张参考图片，URL 或 Base64。用于参考视频模式
-            （仅 `grok-imagine-video` 支持）。与 `image` 互斥。
+            （仅 `grok-imagine-video` 支持）。与 `image` 互斥。多图参考的**推荐字段**。
+          items:
+            type: string
+          examples:
+            - - https://example.com/reference-1.jpg
+              - https://example.com/reference-2.jpg
+        ref_images:
+          type: array
+          description: |
+            参考图片数组的**兼容别名**，与 `images` 等价（择一即可，勿与 `images` 同时传）。
+            供沿用此约定的客户端使用；新接入推荐使用 `images`。
           items:
             type: string
           examples:
